@@ -1,4 +1,5 @@
-# 🚀 Rescue Agent v2.0 - MCP Enhanced
+<<<<<<< HEAD
+# 🚀 Rescue Agent
 
 **AI-Powered Travel Disruption Resolution with Real-Time Data Access**
 
@@ -551,3 +552,6 @@ LOG_LEVEL=DEBUG python demo.py
 **Built with ❤️ using GPT-4 and MCP**
 
 Ready to rescue travelers with REAL-TIME intelligence! 🚀✈️
+=======
+# AIChatbotInterface
+>>>>>>> 32f17a7fea4efb0750f7f2295e27b98ea25372dc
