@@ -1,6 +1,5 @@
 """
-TravelBuddy — AI Travel Intelligence
-FastAPI Multi-Agent Backend
+TRAVELBUDDY — AI Travel Intelligence (LangGraph Edition)
 """
 
 from fastapi import FastAPI
@@ -11,26 +10,30 @@ from contextlib import asynccontextmanager
 import logging
 
 from app.routers import chat, health
+from app.graph.builder import get_graph
 from app.config import settings
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s — %(message)s"
 )
-logger = logging.getLogger("TravelBuddy")
+logger = logging.getLogger("TRAVELBUDDY")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info(f"🚀 TravelBuddy starting — env={settings.ENV}")
+    # Pre-build the graph at startup so first request isn't slow
+    logger.info(f"🚀 TRAVELBUDDY LangGraph starting — env={settings.ENV}")
+    get_graph()
+    logger.info("✅ LangGraph compiled and ready")
     yield
-    logger.info("TravelBuddy shutting down")
+    logger.info("TRAVELBUDDY shutting down")
 
 
 app = FastAPI(
-    title="TravelBuddy Travel Intelligence API",
-    version="1.0.0",
-    description="Multi-agent AI travel assistant",
+    title="TRAVELBUDDY Travel Intelligence API",
+    version=settings.APP_VERSION,
+    description="Multi-agent AI travel assistant powered by LangGraph",
     lifespan=lifespan,
 )
 
@@ -41,12 +44,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Routers
 app.include_router(health.router, prefix="/api")
-app.include_router(chat.router, prefix="/api")
+app.include_router(chat.router,  prefix="/api")
 
-# Serve static frontend
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
 
 @app.get("/", include_in_schema=False)
 async def serve_frontend():

@@ -1,1 +1,1 @@
-"""TravelBuddy — AI Travel Intelligence"""
+"""TRAVELBUDDY — AI Travel Intelligence (LangGraph Edition)"""

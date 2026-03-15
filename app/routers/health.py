@@ -1,10 +1,4 @@
-"""
-Health Router
-GET /api/health   — liveness probe
-GET /api/ready    — readiness probe
-"""
-
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from datetime import datetime, timezone
 from app.config import settings
@@ -31,8 +25,6 @@ async def health():
 
 @router.get("/ready", response_model=HealthResponse)
 async def ready():
-    """Readiness — verifies API key is set."""
     if not settings.OPENAI_API_KEY:
-        from fastapi import HTTPException
         raise HTTPException(status_code=503, detail="OPENAI_API_KEY not configured")
     return await health()

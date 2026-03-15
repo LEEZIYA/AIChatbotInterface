@@ -1,116 +1,80 @@
-# ✈️ TravelBuddy — AI Travel Intelligence
+# ✈️ TRAVELBUDDY — LangGraph Multi-Agent Edition
 
-Multi-agent AI travel assistant powered by OpenAI GPT-4o.
+Real multi-agent travel assistant using LangGraph supervisor pattern.
 
----
+## How it actually works
 
-## Prerequisites
-
-- Python 3.11+ **or** Docker Desktop installed
-- An OpenAI API key → https://platform.openai.com/api-keys
-
----
-
-## Step 1 — Add your API key
-
-```bash
-# Rename the example file
-cp .env.example .env
-
-# Open .env and replace sk-... with your real key
-OPENAI_API_KEY=sk-your-real-key-here
+```
+User message
+     │
+     ▼
+[Supervisor]  — gpt-4o decides which agents to invoke
+     │
+     ├──► [Planner Agent]    — flights, hotels, itinerary  (gpt-4o-mini + tools)
+     ├──► [Weather Agent]    — forecast, packing           (gpt-4o-mini + tools)
+     ├──► [Activities Agent] — things to do, restaurants   (gpt-4o-mini + tools)
+     ├──► [Advisory Agent]   — safety, visa, vaccines      (gpt-4o-mini + tools)
+     └──► [Rescue Agent]     — emergency contacts          (gpt-4o-mini + tools)
+                  │ (all run in PARALLEL)
+                  ▼
+          [Synthesiser]  — gpt-4o merges all outputs
+                  │
+                  ▼
+            Final response
 ```
 
----
+Each agent has its own LLM instance, its own tools, and runs independently.
 
-## Option A — Run with Python (no Docker)
+## Quick start
 
 ```bash
-# 1. Create a virtual environment
+# 1. Add your API key
+cp .env.example .env
+# edit .env — set OPENAI_API_KEY=sk-...
+
+# 2. Install
 python -m venv venv
-py -m venv venv
-
-# 2. Activate it
-#    Mac/Linux:
-source venv/bin/activate
-#    Windows:
-venv\Scripts\activate
-
-# 3. Install dependencies
+venv\Scripts\activate        # Windows
+source venv/bin/activate     # Mac/Linux
 pip install -r requirements.txt
 
-# 4. Start the server
+# 3. Run
 uvicorn app.main:app --reload --port 8000
 ```
 
-Open your browser → **http://localhost:8000**
-
-To stop: press `Ctrl + C`
-
----
-
-## Option B — Run with Docker
-
-```bash
-# 1. Build the image (only needed once, or after code changes)
-docker build -t TravelBuddy .
-
-# 2. Run the container
-docker run -p 8000:8000 --env-file .env TravelBuddy
-```
-
-Open your browser → **http://localhost:8000**
-
-To stop: press `Ctrl + C`
-
----
+Open → http://localhost:8000
 
 ## Project structure
 
 ```
-TravelBuddy/
-├── app/
-│   ├── main.py              ← FastAPI app
-│   ├── config.py            ← Settings (reads from .env)
-│   ├── agents/
-│   │   └── orchestrator.py  ← All 6 agents + OpenAI call
-│   ├── routers/
-│   │   ├── chat.py          ← POST /api/chat
-│   │   └── health.py        ← GET /api/health
-│   └── static/
-│       └── index.html       ← The web UI
-├── .env.example             ← Copy this to .env
-├── Dockerfile
-└── requirements.txt
+app/
+├── main.py                   ← FastAPI entry point
+├── config.py                 ← Settings from .env
+├── agents/
+│   ├── base.py               ← BaseAgent: agentic tool-calling loop
+│   └── specialists.py        ← 5 agents: Planner, Weather, Activities, Advisory, Rescue
+├── graph/
+│   ├── state.py              ← TravelState: shared data between nodes
+│   ├── supervisor.py         ← Routing node: decides which agents to call
+│   ├── nodes.py              ← One LangGraph node per agent
+│   ├── synthesiser.py        ← Merges all agent outputs into final response
+│   └── builder.py            ← Wires the graph, compiles with memory
+├── routers/
+│   ├── chat.py               ← POST /api/chat
+│   └── health.py             ← GET /api/health
+├── tools/
+│   └── travel_tools.py       ← All @tool functions each agent can call
+└── static/
+    └── index.html            ← Web UI
 ```
 
----
+## Memory
 
-## API endpoints
+Sessions are tracked by `session_id`. The frontend generates one per browser session
+and sends it with every message. LangGraph uses it as `thread_id` to maintain
+conversation history in MemorySaver.
 
-| Method | URL | Description |
-|---|---|---|
-| `GET` | `/` | Opens the web UI |
-| `GET` | `/api/health` | Check if server is running |
-| `POST` | `/api/chat` | Send a message to the agents |
-
----
-
-## Changing the model
-
-Open `.env` and change:
+To switch to persistent memory (survives restarts), change in `builder.py`:
+```python
+build_graph(use_sqlite=True)
 ```
-OPENAI_MODEL=gpt-4o        # Best quality
-OPENAI_MODEL=gpt-4o-mini   # Faster and cheaper
-```
-
----
-
-## Troubleshooting
-
-| Problem | Fix |
-|---|---|
-| `OPENAI_API_KEY not configured` | Make sure `.env` exists and has your key |
-| `Port 8000 already in use` | Change `--port 8000` to `--port 8001` |
-| `ModuleNotFoundError` | Run `pip install -r requirements.txt` again |
-| Docker: `Cannot connect to Docker daemon` | Open Docker Desktop first |

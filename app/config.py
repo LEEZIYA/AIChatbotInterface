@@ -1,27 +1,26 @@
 """
-Configuration — loads from environment variables / .env
+Configuration — reads from .env file
 """
-
 from pydantic_settings import BaseSettings
 from typing import List
 
 
 class Settings(BaseSettings):
-    # App
-    ENV: str = "production"
-    APP_VERSION: str = "1.0.0"
+    ENV: str = "development"
+    APP_VERSION: str = "2.0.0"
 
     # OpenAI
     OPENAI_API_KEY: str
+    OPENAI_MODEL: str = "gpt-4o"
+    OPENAI_MODEL_MINI: str = "gpt-4o-mini"  # used by sub-agents to save cost
 
-    # CORS — comma-separated origins
+    # Memory
+    SQLITE_DB_PATH: str = "TRAVELBUDDY_memory.db"
+
+    # CORS
     ALLOWED_ORIGINS: List[str] = ["*"]
 
-    # Model — gpt-4o for best quality, gpt-4o-mini for lower cost
-    OPENAI_MODEL: str = "gpt-4o"
-    MAX_TOKENS: int = 2500
-
-    # Rate limiting (requests per minute per IP)
+    # Rate limiting
     RATE_LIMIT_RPM: int = 30
 
     class Config:

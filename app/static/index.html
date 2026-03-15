@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TravelBuddy — AI Travel Intelligence</title>
+<title>TRAVELBUDDY — AI Travel Intelligence</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -769,7 +769,7 @@
 
 <header>
   <div class="logo">
-    TravelBuddy
+    TRAVELBUDDY
     <span>AI TRAVEL INTELLIGENCE</span>
   </div>
   <div class="header-status">
@@ -838,6 +838,7 @@
 
 <script>
 const BACKEND_API = "/api/chat";
+let sessionId = null; // persists across messages for memory continuity
 
 const AGENTS = [
   {
@@ -1102,7 +1103,7 @@ function buildAdvisoryCard(advisory) {
 }
 
 function buildWeatherWidget(forecast) {
-  if (!forecast) return '';
+  if (!forecast || !Array.isArray(forecast) || forecast.length === 0) return '';
   return `<div class="weather-widget">
     ${forecast.map(f => `
       <div class="weather-cell">
@@ -1116,7 +1117,7 @@ function buildWeatherWidget(forecast) {
 }
 
 function buildItinerary(itinerary) {
-  if (!itinerary) return '';
+  if (!itinerary || !Array.isArray(itinerary) || itinerary.length === 0) return '';
   return itinerary.map(day => `
     <div class="itinerary-day">
       <div class="itin-day-header">DAY ${day.day}</div>
@@ -1237,11 +1238,12 @@ async function sendMessage() {
     const response = await fetch(BACKEND_API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: conversationHistory })
+      body: JSON.stringify({ messages: conversationHistory, session_id: sessionId })
     });
 
     const data = await response.json();
     if (!response.ok) throw new Error(data.detail || 'Server error');
+    if (data.session_id) sessionId = data.session_id; // store for next message
     const rawText = JSON.stringify(data.result);
 
     removeTyping();
@@ -1288,21 +1290,24 @@ async function sendMessage() {
 
       if (ar.weather?.active && ar.weather?.response) {
         let weatherHTML = ar.weather.response;
-        if (ar.weather.forecast) weatherHTML += buildWeatherWidget(ar.weather.forecast);
+        const forecast = ar.weather.forecast;
+        if (forecast && Array.isArray(forecast)) weatherHTML += buildWeatherWidget(forecast);
         addMessage('weather', weatherHTML);
       }
 
       if (ar.planner?.active && ar.planner?.response) {
         let planHTML = ar.planner.response;
-        if (ar.planner.itinerary) planHTML += buildItinerary(ar.planner.itinerary);
+        const itinerary = ar.planner.itinerary;
+        if (itinerary && Array.isArray(itinerary)) planHTML += buildItinerary(itinerary);
         addMessage('planner', planHTML);
       }
 
       if (ar.activities?.active && ar.activities?.response) {
         let actHTML = ar.activities.response;
-        if (ar.activities.highlights) {
+        const highlights = ar.activities.highlights;
+        if (highlights && Array.isArray(highlights) && highlights.length > 0) {
           actHTML += `<ul style="margin-top:8px;padding-left:16px;font-size:12px;color:var(--text-dim)">
-            ${ar.activities.highlights.map(h => `<li style="padding:2px 0">${h}</li>`).join('')}
+            ${highlights.map(h => `<li style="padding:2px 0">${typeof h === 'object' ? (h.name || JSON.stringify(h)) : h}</li>`).join('')}
           </ul>`;
         }
         addMessage('activities', actHTML);
@@ -1373,7 +1378,7 @@ function addWelcomeMessage() {
   const div = document.createElement('div');
   div.style.cssText = 'text-align:center;padding:30px 20px;';
   div.innerHTML = `
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:4px;color:var(--accent);text-shadow:0 0 20px rgba(0,212,255,0.3)">TravelBuddy</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:4px;color:var(--accent);text-shadow:0 0 20px rgba(0,212,255,0.3)">TRAVELBUDDY</div>
     <div style="font-size:12px;color:var(--text-dim);font-family:'DM Mono',monospace;letter-spacing:2px;margin-top:4px;margin-bottom:20px">AI TRAVEL INTELLIGENCE SYSTEM</div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;max-width:480px;margin:0 auto 20px">
       ${AGENTS.filter(a => a.id !== 'orchestrator').map(a => `
