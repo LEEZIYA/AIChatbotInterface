@@ -1,4 +1,4 @@
-# ✈️ VOYAGER v4 — RCG Multi-Agent Travel Intelligence
+# ✈️ travelbuddy v4 — RCG Multi-Agent Travel Intelligence
 
 A production-grade multi-agent AI travel assistant built with LangGraph, FastAPI and OpenAI.
 Uses RCG (Retrieval-Contextual Grounding) prompting — every agent retrieves live data from
@@ -109,7 +109,7 @@ All tools use OpenAI with `web_search_preview` — no hardcoded data anywhere.
 ## Project Structure
 
 ```
-voyager-v4/
+travelbuddy-v4/
 ├── app/
 │   ├── main.py                    ← FastAPI entry point
 │   ├── config.py                  ← Settings from .env (model routing config)
