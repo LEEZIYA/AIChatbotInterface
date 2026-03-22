@@ -1,15 +1,8 @@
 """
-Supervisor Node
----------------
-The supervisor is the brain of the graph. It:
-
-1. Receives the user message
-2. Decides which specialist agents to invoke (routing)
-3. Extracts structured context (destination, dates, etc.)
-4. Returns next_agents list which LangGraph uses to route the graph
-
-The supervisor does NOT call agents directly — it just decides who should run.
-LangGraph's conditional edges handle the actual routing.
+Supervisor Node — RCG Edition
+------------------------------
+Uses OPENAI_MODEL_ROUTER (gpt-4o-mini) — routing is a classification task,
+not complex reasoning. RCG Goal 3: align task complexity with model strength.
 """
 
 import json
@@ -22,90 +15,72 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from app.config import settings
 from app.graph.state import TravelState
 
-logger = logging.getLogger("TRAVELBUDDY.supervisor")
+logger = logging.getLogger("voyager.supervisor")
 
-SUPERVISOR_SYSTEM = """You are the Supervisor of TRAVELBUDDY, an AI travel intelligence system.
+SUPERVISOR_SYSTEM = """You are the Supervisor of VOYAGER, an AI travel intelligence system.
 You coordinate 5 specialist agents:
-  - planner    : flights, hotels, day-by-day itineraries
-  - weather    : forecasts, seasonal patterns, packing
-  - activities : experiences, restaurants, things to do
-  - advisory   : safety advisories, visa, vaccines, local laws
-  - rescue     : emergency contacts, hospitals, embassies
+  - planner    : flights, hotels, day-by-day itineraries, routes
+  - weather    : forecasts, seasonal patterns, packing advice
+  - activities : experiences, restaurants, things to do, culture
+  - advisory   : safety advisories, visa requirements, vaccines, local laws
+  - rescue     : emergency contacts, hospitals, embassies, crisis help
 
-Your ONLY job is to analyse the user's message and decide:
-1. Which agents to invoke (can be multiple)
-2. What destination is mentioned
-3. Any travel dates or origin country mentioned
+Your ONLY job: analyse the user's query and decide which agents to invoke.
 
-Respond ONLY with a valid JSON object:
+Respond ONLY with valid JSON:
 {
-  "next_agents": ["planner", "weather", "activities", "advisory", "rescue"],
-  "destination": "city, country or null",
-  "travel_dates": "date range or null",
-  "traveler_origin": "country or null",
-  "routing_reason": "brief explanation of why you chose these agents"
+  "next_agents": ["list of agent names to invoke"],
+  "routing_reason": "brief explanation"
 }
 
-Rules:
+Routing rules:
 - Always include "advisory" for any destination-specific query
-- Include "rescue" only if emergency, hospital, or safety help is requested
-- Include "planner" for trip planning, itinerary, flights, hotels
-- Include "weather" for weather, climate, packing, seasonal questions
-- Include "activities" for things to do, restaurants, experiences, culture
-- You may include multiple agents for broad queries like "plan a trip to X"
-- For greetings or off-topic messages, return next_agents: ["orchestrator_only"]
+- Include "planner" for trip planning, itinerary, flights, hotels, duration queries
+- Include "weather" for weather, climate, packing, best time to visit
+- Include "activities" for things to do, food, restaurants, culture, experiences
+- Include "rescue" only if emergency, hospital or urgent safety help requested
+- Include multiple agents for broad queries like "plan a trip to X"
+- For greetings or off-topic: return next_agents: ["orchestrator_only"]
 """
 
 
 async def supervisor_node(state: TravelState) -> Dict[str, Any]:
-    """
-    LangGraph node: Supervisor
-    Analyses the latest user message and decides which agents to route to.
-    """
-    logger.info("Supervisor: analysing query for routing")
+    logger.info("Supervisor: routing")
 
-    # Use full gpt-4o for the supervisor — routing decisions matter
+    # RCG Goal 3: use router model for simple routing classification
     llm = ChatOpenAI(
-        model=settings.OPENAI_MODEL,
+        model=settings.OPENAI_MODEL_ROUTER,
         api_key=settings.OPENAI_API_KEY,
-        temperature=0,                        # deterministic routing
+        temperature=0,
         response_format={"type": "json_object"},
     )
 
-    # Get the latest user message
-    latest_message = ""
+    context_parts = []
+    for k, label in [("destination","Destination"),("travel_dates","Dates"),
+                     ("trip_duration","Duration"),("traveler_origin","Origin")]:
+        if state.get(k):
+            context_parts.append(f"{label}: {state[k]}")
+
+    latest = ""
     for msg in reversed(state["messages"]):
         if msg.get("role") == "user":
-            latest_message = msg.get("content", "")
+            latest = msg.get("content", "")
             break
 
-    messages = [
+    response = await llm.ainvoke([
         SystemMessage(content=SUPERVISOR_SYSTEM),
-        HumanMessage(content=latest_message),
-    ]
+        HumanMessage(content=f"Context: {' | '.join(context_parts)}\nUser: {latest}"),
+    ])
 
-    response = await llm.ainvoke(messages)
     raw = response.content if isinstance(response.content, str) else ""
 
     try:
         routing = json.loads(raw)
     except json.JSONDecodeError:
-        logger.warning("Supervisor JSON parse failed — defaulting to advisory")
-        routing = {
-            "next_agents": ["advisory"],
-            "destination": None,
-            "travel_dates": None,
-            "traveler_origin": None,
-        }
+        logger.warning("Supervisor JSON parse failed — defaulting")
+        routing = {"next_agents": ["planner", "advisory"]}
 
-    logger.info(f"Supervisor routing → {routing.get('next_agents')} | dest={routing.get('destination')}")
+    next_agents = routing.get("next_agents", ["advisory"])
+    logger.info(f"Supervisor → {next_agents}")
 
-    return {
-        "next_agents":     routing.get("next_agents", ["advisory"]),
-        "destination":     routing.get("destination"),
-        "travel_dates":    routing.get("travel_dates"),
-        "traveler_origin": routing.get("traveler_origin"),
-        # Pass through — don't add new messages at this stage
-        "messages":        [],
-        "agent_responses": [],
-    }
+    return {"next_agents": next_agents, "messages": [], "agent_responses": []}

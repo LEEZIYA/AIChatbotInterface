@@ -1,11 +1,13 @@
 """
-Synthesiser Node
-----------------
-After all specialist agents have run in parallel, the synthesiser:
-1. Collects all AgentResponse objects from state
-2. Extracts structured tool data from each agent's output
-3. Calls GPT-4o to merge them into one coherent response
-4. Builds the final structured response the frontend renders
+Synthesiser Node — RCG Edition
+-------------------------------
+RCG improvements:
+1. Agent outputs wrapped in structured XML <agent_output> tags
+   → Model can navigate large inputs clearly without losing context
+2. SYNTHESISER_SYSTEM updated with grounding rule
+   → Synthesiser can only include claims present in retrieved data
+3. _agent_role() helper for clear section labelling
+4. Uses full gpt-4o — merging 5 parallel agent outputs is complex reasoning
 """
 
 import json
@@ -18,148 +20,139 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from app.config import settings
 from app.graph.state import TravelState, AgentResponse
 
-logger = logging.getLogger("TRAVELBUDDY.synthesiser")
+logger = logging.getLogger("voyager.synthesiser")
 
-SYNTHESISER_SYSTEM = """You are the Response Synthesiser for TRAVELBUDDY, an AI travel intelligence system.
 
-You receive outputs from multiple specialist agents and must synthesise them into one
-coherent structured JSON response. The agent outputs include both text responses and
-raw tool call results (nested under tool names).
-
-You MUST respond with ONLY a valid JSON object in exactly this structure:
-
-{
-  "orchestrator_message": "A warm 2-3 sentence summary tying all findings together",
-  "destination": "destination name or null",
-  "agents_involved": ["list of agent names that were active"],
-  "agent_responses": {
-    "planner": {
-      "active": true,
-      "response": "planner's text response",
-      "itinerary": [{"day": 1, "items": [{"time": "09:00", "activity": "..."}]}]
-    },
-    "weather": {
-      "active": true,
-      "response": "weather agent's text response",
-      "forecast": [{"day": "Mon", "icon": "🌤", "temp": "24°C", "desc": "Partly cloudy"}]
-    },
-    "activities": {
-      "active": true,
-      "response": "activities agent's text response",
-      "highlights": ["activity 1", "activity 2"]
-    },
-    "advisory": {
-      "active": true,
-      "response": "advisory agent's text response",
-      "risk_level": "LOW",
-      "hazards": [{"type": "Natural Disaster", "level": "LOW", "detail": "..."}],
-      "visa": {"requirement": "Visa on Arrival", "details": "...", "source": "...", "updated": "..."},
-      "vaccines": [{"name": "Hepatitis A", "requirement": "Recommended", "notes": "..."}],
-      "local_rules": ["🚭 No smoking in public", "👗 Dress modestly at temples"],
-      "sources": [{"name": "US State Department", "type": "Government", "updated": "2025-01-01"}]
-    },
-    "rescue": {
-      "active": true,
-      "response": "rescue agent's text response",
-      "emergency_numbers": [{"service": "Police", "number": "191"}]
+def _agent_role(name: str) -> str:
+    """Human-readable role description for each agent."""
+    roles = {
+        "planner":    "Trip logistics, itineraries, flights and hotels",
+        "weather":    "Weather forecasts, seasonal patterns and packing advice",
+        "activities": "Attractions, restaurants and local experiences",
+        "advisory":   "Safety advisories, visa requirements, vaccines and local laws",
+        "rescue":     "Emergency contacts, hospitals and embassy information",
     }
+    return roles.get(name, "General travel assistance")
+
+
+SYNTHESISER_SYSTEM = """You are the Response Synthesiser for VOYAGER, an AI travel intelligence system.
+
+You receive structured outputs from specialist agents wrapped in <agent_output> XML tags.
+Each tag contains:
+  <agent_name>       : which specialist produced this output
+  <agent_role>       : what they are responsible for
+  <retrieved_data>   : raw data fetched from live web search tools
+  <agent_reasoning>  : the agent's plain text analysis of the retrieved data
+  <structured_outputs>: parsed arrays ready for UI rendering (forecast, itinerary, etc.)
+
+YOUR JOB:
+1. Read ALL <agent_output> sections carefully
+2. Synthesise into one coherent JSON response
+3. Preserve ALL structured data arrays exactly as provided — do not modify them
+4. Write orchestrator_message in 2-3 warm plain sentences
+
+RCG GROUNDING RULE:
+Your orchestrator_message must ONLY contain claims that appear in the
+<retrieved_data> or <agent_reasoning> sections. Do not add information
+from your own training memory. If data is missing, omit that claim.
+
+FORMATTING:
+- orchestrator_message: plain text, no markdown, no asterisks
+- All agent response fields: plain text only
+- Preserve exact array structures for itinerary, forecast, highlights, emergency_numbers
+
+Return ONLY valid JSON in exactly this structure:
+{
+  "orchestrator_message": "2-3 warm plain sentences grounded in retrieved data",
+  "destination": "destination name or null",
+  "agents_involved": ["list of active agent names"],
+  "agent_responses": {
+    "planner":    { "active": true, "response": "plain text", "itinerary": [...] | null },
+    "weather":    { "active": true, "response": "plain text", "forecast": [...] | null },
+    "activities": { "active": true, "response": "plain text", "highlights": [...] | null },
+    "advisory":   {
+      "active": true, "response": "plain text",
+      "risk_level": "LOW|MEDIUM|HIGH|CRITICAL",
+      "hazards":     [...] | null,
+      "visa":        {...} | null,
+      "vaccines":    [...] | null,
+      "local_rules": [...] | null,
+      "sources":     [...]
+    },
+    "rescue": { "active": true, "response": "plain text", "emergency_numbers": [...] | null }
   }
 }
 
-CRITICAL RULES:
-- For inactive agents set active: false and use null for all array/object fields
-- Extract forecast array from weather tool output — it must be a flat array of day objects
-- Extract itinerary array from planner tool output — it must be array of {day, items} objects
-- Extract highlights as a flat array of strings from activities tool output
-- Extract emergency_numbers as flat array from rescue tool output
-- NEVER nest data inside extra wrapper objects
-- forecast, itinerary, highlights, emergency_numbers must be arrays (not objects) or null
+Set active: false and null data fields for agents that did not run.
 """
 
 
-def _extract_tool_data(agent_response: AgentResponse) -> Dict[str, Any]:
+def _extract(ar: AgentResponse) -> Dict[str, Any]:
+    """Pull structured arrays out of nested tool output dicts."""
+    name = ar.get("agent", "")
+    data = ar.get("data") or {}
+    out  = {"text": ar.get("response", ""), "raw": data}
+
+    for val in data.values():
+        if not isinstance(val, dict):
+            continue
+        if name == "weather"    and "forecast"          in val: out["forecast"]          = val["forecast"]
+        if name == "planner"    and "itinerary"         in val: out["itinerary"]         = val["itinerary"]
+        if name == "activities" and "highlights"        in val:
+            out["highlights"] = [h["name"] if isinstance(h, dict) else h for h in val["highlights"]]
+        if name == "advisory":
+            out.setdefault("advisory_data", {}).update(val)
+        if name == "rescue"     and "emergency_numbers" in val:
+            out["emergency_numbers"] = val["emergency_numbers"]
+
+    return out
+
+
+def _build_xml_section(ar: AgentResponse) -> str:
     """
-    Pull structured data out of the agent's tool_outputs dict.
-    Returns a flat dict of the most useful data for each agent type.
+    RCG: Wrap each agent output in structured XML tags.
+    This makes large multi-agent inputs navigable for the synthesiser LLM.
     """
-    agent_name = agent_response.get("agent", "")
-    data = agent_response.get("data") or {}
-    text = agent_response.get("response", "")
+    ex = _extract(ar)
 
-    extracted = {"text": text, "raw": data}
+    structured = {}
+    for k in ["forecast","itinerary","highlights","emergency_numbers","advisory_data"]:
+        if ex.get(k):
+            structured[k] = ex[k]
 
-    if agent_name == "weather":
-        # Tool: get_weather_forecast returns {"forecast": [...]}
-        for key, val in data.items():
-            if isinstance(val, dict) and "forecast" in val:
-                extracted["forecast"] = val["forecast"]
-                break
-
-    elif agent_name == "planner":
-        # Tool: build_itinerary returns {"itinerary": [...]}
-        for key, val in data.items():
-            if isinstance(val, dict) and "itinerary" in val:
-                extracted["itinerary"] = val["itinerary"]
-                break
-
-    elif agent_name == "activities":
-        # Tool: search_activities returns {"highlights": [...]}
-        for key, val in data.items():
-            if isinstance(val, dict) and "highlights" in val:
-                extracted["highlights"] = [h["name"] if isinstance(h, dict) else h for h in val["highlights"]]
-                break
-
-    elif agent_name == "advisory":
-        extracted["advisory_data"] = {}
-        for key, val in data.items():
-            if isinstance(val, dict):
-                extracted["advisory_data"].update(val)
-
-    elif agent_name == "rescue":
-        for key, val in data.items():
-            if isinstance(val, dict) and "emergency_numbers" in val:
-                extracted["emergency_numbers"] = val["emergency_numbers"]
-                break
-
-    return extracted
+    return f"""<agent_output>
+  <agent_name>{ar['agent']}</agent_name>
+  <agent_role>{_agent_role(ar['agent'])}</agent_role>
+  <retrieved_data>
+{json.dumps(ex.get('raw', {}), indent=2)}
+  </retrieved_data>
+  <agent_reasoning>{ex['text']}</agent_reasoning>
+  <structured_outputs>
+{json.dumps(structured, indent=2)}
+  </structured_outputs>
+</agent_output>"""
 
 
 async def synthesiser_node(state: TravelState) -> Dict[str, Any]:
     """
     LangGraph node: Synthesiser
-    Merges all parallel agent responses into the final structured output.
+    Merges all parallel agent outputs into the final structured response.
+    Uses XML-tagged inputs for clear structure (RCG Goal 2).
+    Uses gpt-4o for complex multi-source reasoning (RCG Goal 3).
     """
     agent_responses: List[AgentResponse] = state.get("agent_responses", [])
     destination = state.get("destination")
-
-    logger.info(f"Synthesiser: merging {len(agent_responses)} agent response(s)")
+    logger.info(f"Synthesiser: merging {len(agent_responses)} agent outputs")
 
     if not agent_responses:
-        final = _empty_response()
+        final = _empty()
         return {"final_response": final, "messages": [], "agent_responses": []}
 
-    # Extract and summarise each agent's output for the LLM
-    summaries = []
-    for ar in agent_responses:
-        extracted = _extract_tool_data(ar)
-        summary = f"=== {ar['agent'].upper()} AGENT ===\n"
-        summary += f"Text response: {extracted['text']}\n"
-        if extracted.get("forecast"):
-            summary += f"Forecast data: {json.dumps(extracted['forecast'])}\n"
-        if extracted.get("itinerary"):
-            summary += f"Itinerary data: {json.dumps(extracted['itinerary'])}\n"
-        if extracted.get("highlights"):
-            summary += f"Highlights data: {json.dumps(extracted['highlights'])}\n"
-        if extracted.get("advisory_data"):
-            summary += f"Advisory data: {json.dumps(extracted['advisory_data'])}\n"
-        if extracted.get("emergency_numbers"):
-            summary += f"Emergency numbers: {json.dumps(extracted['emergency_numbers'])}\n"
-        if extracted.get("raw"):
-            summary += f"Full tool output: {json.dumps(extracted['raw'])}\n"
-        summaries.append(summary)
+    # Build structured XML input — RCG Goal 2: structure extensive inputs clearly
+    xml_sections = [_build_xml_section(ar) for ar in agent_responses]
+    combined = "\n\n".join(xml_sections)
 
-    combined = "\n\n".join(summaries)
-
+    # Use full gpt-4o — merging 5 agent outputs requires complex reasoning (RCG Goal 3)
     llm = ChatOpenAI(
         model=settings.OPENAI_MODEL,
         api_key=settings.OPENAI_API_KEY,
@@ -167,116 +160,92 @@ async def synthesiser_node(state: TravelState) -> Dict[str, Any]:
         response_format={"type": "json_object"},
     )
 
-    messages = [
+    response = await llm.ainvoke([
         SystemMessage(content=SYNTHESISER_SYSTEM),
         HumanMessage(content=f"Destination: {destination}\n\nAgent outputs:\n\n{combined}"),
-    ]
+    ])
 
-    response = await llm.ainvoke(messages)
     raw = response.content if isinstance(response.content, str) else ""
 
     try:
         final = json.loads(raw)
-        # Sanitise — ensure arrays are actually arrays
-        final = _sanitise_response(final, agent_responses, destination)
-    except json.JSONDecodeError as exc:
-        logger.warning(f"Synthesiser JSON parse failed: {exc}")
-        final = _build_fallback_response(agent_responses, destination)
+        final = _sanitise(final, agent_responses, destination)
+    except json.JSONDecodeError as e:
+        logger.warning(f"Synthesiser parse failed: {e}")
+        final = _fallback(agent_responses, destination)
 
-    assistant_message = final.get("orchestrator_message", "Here is your travel information.")
-
+    msg = final.get("orchestrator_message", "Here is your travel information.")
     return {
         "final_response": final,
-        "messages": [{"role": "assistant", "content": assistant_message}],
+        "messages": [{"role": "assistant", "content": msg}],
         "agent_responses": [],
     }
 
 
-def _sanitise_response(final: Dict, agent_responses: List[AgentResponse], destination: Optional[str]) -> Dict:
-    """
-    Defensive cleanup — ensure all array fields are actually arrays.
-    If the LLM returned wrong types, fix them or set to null.
-    """
+def _ensure_list(val):
+    if isinstance(val, list): return val
+    if isinstance(val, dict):
+        for v in val.values():
+            if isinstance(v, list): return v
+    return None
+
+
+def _sanitise(final: Dict, responses: List[AgentResponse], destination: Optional[str]) -> Dict:
     ar = final.get("agent_responses", {})
+    for name in ["planner","weather","activities","advisory","rescue"]:
+        if name not in ar:
+            ar[name] = {"active": False, "response": ""}
 
-    def ensure_list(val):
-        if isinstance(val, list):
-            return val
-        if isinstance(val, dict):
-            # Unwrap if LLM wrapped it: {"forecast": [...]} → [...]
-            for v in val.values():
-                if isinstance(v, list):
-                    return v
-        return None
-
-    for agent_name in ["planner", "weather", "activities", "advisory", "rescue"]:
-        if agent_name not in ar:
-            ar[agent_name] = {"active": False, "response": ""}
-
-    # Fix weather forecast
-    if ar.get("weather", {}).get("active"):
-        ar["weather"]["forecast"] = ensure_list(ar["weather"].get("forecast"))
-
-    # Fix planner itinerary
-    if ar.get("planner", {}).get("active"):
-        ar["planner"]["itinerary"] = ensure_list(ar["planner"].get("itinerary"))
-
-    # Fix activities highlights — must be list of strings
-    if ar.get("activities", {}).get("active"):
-        highlights = ensure_list(ar["activities"].get("highlights"))
-        if highlights:
-            ar["activities"]["highlights"] = [
-                h["name"] if isinstance(h, dict) else str(h) for h in highlights
-            ]
-        else:
-            ar["activities"]["highlights"] = None
-
-    # Fix advisory arrays
-    if ar.get("advisory", {}).get("active"):
-        ar["advisory"]["hazards"]     = ensure_list(ar["advisory"].get("hazards"))
-        ar["advisory"]["vaccines"]    = ensure_list(ar["advisory"].get("vaccines"))
-        ar["advisory"]["local_rules"] = ensure_list(ar["advisory"].get("local_rules"))
-        ar["advisory"]["sources"]     = ensure_list(ar["advisory"].get("sources")) or []
+    if ar["weather"].get("active"):
+        ar["weather"]["forecast"] = _ensure_list(ar["weather"].get("forecast"))
+    if ar["planner"].get("active"):
+        ar["planner"]["itinerary"] = _ensure_list(ar["planner"].get("itinerary"))
+    if ar["activities"].get("active"):
+        h = _ensure_list(ar["activities"].get("highlights"))
+        ar["activities"]["highlights"] = [x["name"] if isinstance(x, dict) else str(x) for x in h] if h else None
+    if ar["advisory"].get("active"):
+        ar["advisory"]["hazards"]     = _ensure_list(ar["advisory"].get("hazards"))
+        ar["advisory"]["vaccines"]    = _ensure_list(ar["advisory"].get("vaccines"))
+        ar["advisory"]["local_rules"] = _ensure_list(ar["advisory"].get("local_rules"))
+        ar["advisory"]["sources"]     = _ensure_list(ar["advisory"].get("sources")) or []
         if not ar["advisory"].get("risk_level"):
             ar["advisory"]["risk_level"] = "LOW"
-
-    # Fix rescue emergency_numbers
-    if ar.get("rescue", {}).get("active"):
-        ar["rescue"]["emergency_numbers"] = ensure_list(ar["rescue"].get("emergency_numbers"))
+    if ar["rescue"].get("active"):
+        ar["rescue"]["emergency_numbers"] = _ensure_list(ar["rescue"].get("emergency_numbers"))
 
     final["agent_responses"] = ar
     if not final.get("destination"):
         final["destination"] = destination
-
     return final
 
 
-def _empty_response() -> Dict:
+def _empty() -> Dict:
     return {
-        "orchestrator_message": "Hello! I'm TRAVELBUDDY, your AI travel assistant. Ask me anything about your trip — planning, weather, activities, safety, or emergency information.",
-        "destination": None,
-        "agents_involved": ["orchestrator"],
+        "orchestrator_message": "Hello! I am VOYAGER, your AI travel assistant. Ask me anything about your trip.",
+        "destination": None, "agents_involved": ["orchestrator"],
         "agent_responses": {
             "planner":    {"active": False, "response": "", "itinerary": None},
             "weather":    {"active": False, "response": "", "forecast": None},
             "activities": {"active": False, "response": "", "highlights": None},
-            "advisory":   {"active": False, "response": "", "risk_level": "LOW", "hazards": None, "visa": None, "vaccines": None, "local_rules": None, "sources": []},
+            "advisory":   {"active": False, "response": "", "risk_level": "LOW",
+                           "hazards": None, "visa": None, "vaccines": None,
+                           "local_rules": None, "sources": []},
             "rescue":     {"active": False, "response": "", "emergency_numbers": None},
         }
     }
 
 
-def _build_fallback_response(agent_responses: List[AgentResponse], destination: Optional[str]) -> Dict:
-    """Build a safe minimal response if the LLM call fails."""
-    active_agents = [ar["agent"] for ar in agent_responses]
-    combined_text = " | ".join(ar["response"] for ar in agent_responses if ar.get("response"))
-    base = _empty_response()
-    base["orchestrator_message"] = combined_text or "Travel information gathered."
+def _fallback(responses: List[AgentResponse], destination: Optional[str]) -> Dict:
+    base = _empty()
     base["destination"] = destination
-    base["agents_involved"] = active_agents
-    for ar in agent_responses:
-        name = ar["agent"]
-        if name in base["agent_responses"]:
-            base["agent_responses"][name]["active"] = True
-            base["agent_responses"][name]["response"] = ar.get("response", "")
+    base["agents_involved"] = [r["agent"] for r in responses]
+    base["orchestrator_message"] = (
+        " ".join(r["response"] for r in responses if r.get("response"))
+        or "Travel information gathered."
+    )
+    for r in responses:
+        n = r["agent"]
+        if n in base["agent_responses"]:
+            base["agent_responses"][n]["active"] = True
+            base["agent_responses"][n]["response"] = r.get("response", "")
     return base

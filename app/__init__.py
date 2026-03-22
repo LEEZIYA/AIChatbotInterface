@@ -1,1 +1,1 @@
-"""TRAVELBUDDY — AI Travel Intelligence (LangGraph Edition)"""
+"""VOYAGER v3"""

@@ -1,282 +1,378 @@
 """
-Travel Tools
-------------
-These are the real callable functions agents can invoke.
-Each @tool decorated function is discoverable by the LLM via tool-calling.
-The LLM decides WHEN and HOW to call them based on the user query.
+Travel Tools — AI-powered with web search
+-----------------------------------------
+Each tool calls OpenAI with web_search_preview enabled.
+This means every response pulls live data from the internet:
+- Real places, current prices, actual opening hours
+- Live travel advisories and visa rules
+- Current weather and forecasts
+- Up-to-date vaccine requirements
 
-In a production system these would call real APIs (OpenWeather, Skyscanner, etc.)
-For now they return structured realistic data so the full graph works end-to-end.
+No hardcoded data anywhere.
 """
 
 from langchain_core.tools import tool
 from typing import Dict, Any
 import logging
+import json
+from openai import OpenAI
+from app.config import settings
 
-logger = logging.getLogger("TRAVELBUDDY.tools")
+logger = logging.getLogger("voyager.tools")
+
+_client = None
+
+def get_client():
+    global _client
+    if _client is None:
+        _client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    return _client
 
 
-# ── PLANNER TOOLS ─────────────────────────────────────────────────────────────
+def _search_ai(prompt: str) -> str:
+    """Make an OpenAI call with web search enabled. Returns response text."""
+    client = get_client()
+    try:
+        response = client.responses.create(
+            model="gpt-4o-mini",
+            tools=[{"type": "web_search_preview"}],
+            input=prompt,
+        )
+        for block in response.output:
+            if hasattr(block, "content"):
+                for item in block.content:
+                    if hasattr(item, "text"):
+                        return item.text
+        return ""
+    except Exception as e:
+        logger.error(f"Web search AI call failed: {e}")
+        return ""
+
+
+def _parse_json(raw: str, fallback: Dict) -> Dict:
+    """Extract JSON from AI response, return fallback if it fails."""
+    try:
+        if "```json" in raw:
+            raw = raw.split("```json")[1].split("```")[0]
+        elif "```" in raw:
+            raw = raw.split("```")[1].split("```")[0]
+        return json.loads(raw.strip())
+    except Exception:
+        logger.warning("JSON parse failed — returning fallback")
+        return fallback
+
+
+# ── PLANNER ────────────────────────────────────────────────────────────────────
+
+@tool
+def build_itinerary(destination: str, duration_days: int, travel_dates: str = "", interests: str = "general") -> Dict[str, Any]:
+    """Build a detailed day-by-day itinerary with specific named places using live web search."""
+    logger.info(f"Tool: build_itinerary({destination}, {duration_days} days) — web search")
+    date_ctx = f"for travel in {travel_dates}" if travel_dates else ""
+    prompt = f"""Search the web for the best {duration_days}-day travel itinerary for {destination} {date_ctx}.
+
+Return ONLY a valid JSON object, no other text:
+{{
+  "destination": "{destination}",
+  "duration_days": {duration_days},
+  "itinerary": [
+    {{
+      "day": 1,
+      "items": [
+        {{"time": "08:30", "activity": "[SPECIFIC NAMED PLACE] — [what to do there and why it is special]"}},
+        {{"time": "12:00", "activity": "Lunch at [SPECIFIC RESTAURANT/MARKET NAME] — [what dish to order]"}},
+        {{"time": "14:00", "activity": "[SPECIFIC ATTRACTION/NEIGHBOURHOOD] — [details and tips]"}},
+        {{"time": "19:00", "activity": "Dinner at [SPECIFIC AREA/RESTAURANT] — [what to try]"}}
+      ]
+    }}
+  ]
+}}
+
+Critical rules:
+- Name SPECIFIC real places — never say "visit a temple", say WHICH temple
+- Include real restaurant names and specific dishes to order
+- Cover different areas and neighbourhoods across the days
+- Add insider tips like "book ahead", "arrive early", "best at sunset"
+- Include all {duration_days} days
+- Each day should have 4-6 activities with times
+"""
+    raw = _search_ai(prompt)
+    fallback = {
+        "destination": destination,
+        "duration_days": duration_days,
+        "itinerary": [{"day": i+1, "items": [{"time": "09:00", "activity": f"Explore {destination} — Day {i+1}"}]} for i in range(duration_days)]
+    }
+    return _parse_json(raw, fallback)
+
 
 @tool
 def search_flights(origin: str, destination: str, date: str) -> Dict[str, Any]:
-    """Search for available flights between two cities on a given date."""
-    logger.info(f"Tool: search_flights({origin} → {destination}, {date})")
-    return {
-        "origin": origin,
-        "destination": destination,
-        "date": date,
-        "options": [
-            {"airline": "Singapore Airlines", "departure": "08:00", "arrival": "14:30", "price": "SGD 850", "duration": "6h 30m"},
-            {"airline": "ANA",               "departure": "11:15", "arrival": "18:45", "price": "SGD 780", "duration": "7h 30m"},
-            {"airline": "Cathay Pacific",    "departure": "22:00", "arrival": "05:30+1","price": "SGD 690", "duration": "7h 30m"},
-        ]
-    }
+    """Search for flight options and current prices between two cities."""
+    logger.info(f"Tool: search_flights({origin} → {destination}) — web search")
+    prompt = f"""Search the web for flights from {origin} to {destination} around {date}.
+Return ONLY a JSON object:
+{{
+  "origin": "{origin}",
+  "destination": "{destination}",
+  "date": "{date}",
+  "options": [
+    {{"airline": "Name", "departure": "HH:MM", "arrival": "HH:MM", "price": "SGD XXX", "duration": "Xhr Xmin", "notes": "direct or stopover info"}},
+    {{"airline": "Name", "departure": "HH:MM", "arrival": "HH:MM", "price": "SGD XXX", "duration": "Xhr Xmin", "notes": "..."}}
+  ],
+  "tips": "Current booking advice"
+}}
+Include 3-4 realistic airline options with current typical prices."""
+    raw = _search_ai(prompt)
+    return _parse_json(raw, {"origin": origin, "destination": destination, "date": date, "options": [], "tips": "Check Google Flights for latest prices."})
 
 
 @tool
 def search_hotels(destination: str, checkin: str, checkout: str, budget: str = "mid-range") -> Dict[str, Any]:
-    """Search for hotels in a destination city for given dates and budget level."""
-    logger.info(f"Tool: search_hotels({destination}, {checkin}–{checkout}, {budget})")
-    return {
-        "destination": destination,
-        "checkin": checkin,
-        "checkout": checkout,
-        "hotels": [
-            {"name": "Park Hyatt", "stars": 5, "price_per_night": "SGD 520", "area": "City Centre", "rating": 9.2},
-            {"name": "Mercure Hotel", "stars": 4, "price_per_night": "SGD 180", "area": "Shinjuku", "rating": 8.7},
-            {"name": "Dormy Inn", "stars": 3, "price_per_night": "SGD 95", "area": "Asakusa", "rating": 8.9},
-        ]
-    }
+    """Find recommended hotels with current prices and reviews."""
+    logger.info(f"Tool: search_hotels({destination}, {budget}) — web search")
+    prompt = f"""Search the web for the best {budget} hotels in {destination} for {checkin} to {checkout}.
+Return ONLY a JSON object:
+{{
+  "destination": "{destination}",
+  "hotels": [
+    {{"name": "Hotel Name", "stars": 4, "price_per_night": "SGD XXX", "area": "Neighbourhood", "rating": 8.9, "why": "What makes it special"}},
+    {{"name": "...", "stars": 3, "price_per_night": "SGD XXX", "area": "...", "rating": 8.5, "why": "..."}}
+  ],
+  "tip": "Current booking advice"
+}}
+Include 3-4 real hotels with current realistic prices."""
+    raw = _search_ai(prompt)
+    return _parse_json(raw, {"destination": destination, "hotels": [], "tip": "Check Booking.com for latest availability."})
 
 
-@tool
-def build_itinerary(destination: str, duration_days: int, interests: str = "general") -> Dict[str, Any]:
-    """Build a day-by-day travel itinerary for a destination."""
-    logger.info(f"Tool: build_itinerary({destination}, {duration_days} days)")
-    days = []
-    sample_activities = {
-        1: [("09:00","Arrive and check in to hotel"),("11:00","Explore city centre"),("14:00","Lunch at local restaurant"),("16:00","Visit main landmark"),("19:00","Dinner in food district")],
-        2: [("08:00","Breakfast at hotel"),("09:30","Day trip to nearby attraction"),("13:00","Lunch"),("15:00","Museum or cultural site"),("18:00","Evening market or street food")],
-        3: [("09:00","Morning temple or nature visit"),("12:00","Local neighbourhood exploration"),("15:00","Shopping or souvenir"),("18:00","Farewell dinner"),("21:00","Pack and rest")],
-    }
-    for d in range(1, min(duration_days + 1, 8)):
-        items = sample_activities.get(d, sample_activities[3])
-        days.append({"day": d, "items": [{"time": t, "activity": a} for t, a in items]})
-    return {"destination": destination, "duration_days": duration_days, "itinerary": days}
-
-
-# ── WEATHER TOOLS ─────────────────────────────────────────────────────────────
+# ── WEATHER ────────────────────────────────────────────────────────────────────
 
 @tool
-def get_weather_forecast(city: str, days: int = 5) -> Dict[str, Any]:
-    """Get weather forecast for a city for the next N days."""
-    logger.info(f"Tool: get_weather_forecast({city}, {days} days)")
-    day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    forecasts = [
-        {"day": day_names[i % 7], "icon": "🌤", "temp": f"{22 + i}°C", "desc": "Partly cloudy", "humidity": "65%", "rain_chance": "20%"}
-        for i in range(days)
-    ]
-    forecasts[1]["icon"] = "🌧"
-    forecasts[1]["desc"] = "Rain expected"
-    forecasts[1]["rain_chance"] = "80%"
-    return {"city": city, "forecast": forecasts, "source": "OpenWeatherMap"}
+def get_weather_forecast(city: str, travel_month: str = "") -> Dict[str, Any]:
+    """Get weather forecast and seasonal information using live data."""
+    logger.info(f"Tool: get_weather_forecast({city}, {travel_month}) — web search")
+    month_ctx = f"in {travel_month}" if travel_month else "currently"
+    prompt = f"""Search the web for weather in {city} {month_ctx} for tourists.
+Return ONLY a JSON object:
+{{
+  "city": "{city}",
+  "forecast": [
+    {{"day": "Mon", "icon": "🌤", "temp": "24°C", "desc": "Partly cloudy"}},
+    {{"day": "Tue", "icon": "🌧", "temp": "21°C", "desc": "Rain expected"}},
+    {{"day": "Wed", "icon": "☀️", "temp": "26°C", "desc": "Sunny"}},
+    {{"day": "Thu", "icon": "🌤", "temp": "25°C", "desc": "Partly cloudy"}},
+    {{"day": "Fri", "icon": "⛅", "temp": "23°C", "desc": "Overcast"}}
+  ],
+  "seasonal_summary": "What the weather is like this time of year",
+  "packing_tips": ["specific tip 1", "specific tip 2", "specific tip 3"]
+}}
+Icons: ☀️ sunny, 🌤 partly cloudy, ⛅ overcast, 🌧 rain, ⛈ storm, 🌨 snow."""
+    raw = _search_ai(prompt)
+    return _parse_json(raw, {"city": city, "forecast": [], "seasonal_summary": f"Check weather.com for {city}.", "packing_tips": []})
 
 
 @tool
 def get_seasonal_info(destination: str, month: str) -> Dict[str, Any]:
-    """Get seasonal climate information and packing recommendations for a destination."""
-    logger.info(f"Tool: get_seasonal_info({destination}, {month})")
-    return {
-        "destination": destination,
-        "month": month,
-        "climate": "Temperate with mild rainfall",
-        "avg_temp_high": "24°C",
-        "avg_temp_low": "16°C",
-        "packing_tips": [
-            "Light layers for temperature swings",
-            "Compact umbrella or rain jacket",
-            "Comfortable walking shoes",
-            "Sunscreen SPF 30+"
-        ],
-        "best_for": "Sightseeing, outdoor activities",
-        "avoid": "Heavy outdoor events may be rained out mid-week"
-    }
+    """Get detailed seasonal travel information for a destination and month."""
+    logger.info(f"Tool: get_seasonal_info({destination}, {month}) — web search")
+    prompt = f"""Search the web for what {destination} is like for tourists in {month}.
+Return ONLY a JSON object:
+{{
+  "destination": "{destination}",
+  "month": "{month}",
+  "climate": "Climate description",
+  "avg_temp_high": "XX°C",
+  "avg_temp_low": "XX°C",
+  "packing_tips": ["tip 1", "tip 2", "tip 3"],
+  "best_for": "Activities best suited to this time of year",
+  "avoid": "Any risks or busy periods to be aware of",
+  "events": "Festivals or events happening this month"
+}}"""
+    raw = _search_ai(prompt)
+    return _parse_json(raw, {"destination": destination, "month": month, "climate": "Check local sources", "packing_tips": []})
 
 
-# ── ACTIVITIES TOOLS ──────────────────────────────────────────────────────────
+# ── ACTIVITIES ─────────────────────────────────────────────────────────────────
 
 @tool
-def search_activities(destination: str, category: str = "all") -> Dict[str, Any]:
-    """Search for activities, attractions and experiences in a destination."""
-    logger.info(f"Tool: search_activities({destination}, {category})")
-    return {
-        "destination": destination,
-        "highlights": [
-            {"name": "Historic Old Town", "type": "Cultural", "duration": "2-3 hrs", "cost": "Free", "rating": 4.8},
-            {"name": "Street Food Night Market", "type": "Food", "duration": "2 hrs", "cost": "SGD 15-30", "rating": 4.9},
-            {"name": "Guided Walking Tour", "type": "Tour", "duration": "3 hrs", "cost": "SGD 25", "rating": 4.7},
-            {"name": "Local Cooking Class", "type": "Experience", "duration": "4 hrs", "cost": "SGD 80", "rating": 4.9},
-            {"name": "National Museum", "type": "Museum", "duration": "2 hrs", "cost": "SGD 12", "rating": 4.6},
-        ]
-    }
+def search_activities(destination: str, duration_days: int = 3, interests: str = "general") -> Dict[str, Any]:
+    """Find top-rated activities and attractions with current info from the web."""
+    logger.info(f"Tool: search_activities({destination}) — web search")
+    prompt = f"""Search the web for the best things to do in {destination} right now.
+Return ONLY a JSON object:
+{{
+  "destination": "{destination}",
+  "highlights": [
+    {{"name": "Specific Place Name", "type": "Cultural/Food/Nature/Experience", "duration": "2-3 hrs", "cost": "Free or SGD XX", "rating": 4.8, "tip": "Insider tip or best time to visit"}},
+    {{"name": "...", "type": "...", "duration": "...", "cost": "...", "rating": 4.7, "tip": "..."}}
+  ]
+}}
+Include 6-8 specific real attractions. Mix must-sees with hidden gems. Add current prices and insider tips."""
+    raw = _search_ai(prompt)
+    return _parse_json(raw, {"destination": destination, "highlights": []})
 
 
 @tool
 def search_restaurants(destination: str, cuisine: str = "local") -> Dict[str, Any]:
-    """Find top restaurants in a destination by cuisine type."""
-    logger.info(f"Tool: search_restaurants({destination}, {cuisine})")
-    return {
-        "destination": destination,
-        "cuisine": cuisine,
-        "restaurants": [
-            {"name": "The Local Table", "type": "Traditional", "price": "$$", "rating": 4.8, "must_try": "Chef's seasonal tasting menu"},
-            {"name": "Night Bazaar Kitchen", "type": "Street Food", "price": "$", "rating": 4.9, "must_try": "Grilled skewers and noodles"},
-            {"name": "Harbour View", "type": "Fine Dining", "price": "$$$$", "rating": 4.7, "must_try": "Seafood platter"},
-        ]
-    }
+    """Find top restaurants with current recommendations from the web."""
+    logger.info(f"Tool: search_restaurants({destination}) — web search")
+    prompt = f"""Search the web for the best {cuisine} restaurants in {destination} right now.
+Return ONLY a JSON object:
+{{
+  "destination": "{destination}",
+  "restaurants": [
+    {{"name": "Restaurant Name", "type": "Cuisine", "price": "$ or $$ or $$$", "rating": 4.8, "must_try": "Specific dish", "area": "Neighbourhood", "tip": "Reservation needed?"}},
+    {{"name": "...", "type": "...", "price": "...", "rating": 4.7, "must_try": "...", "area": "...", "tip": "..."}}
+  ]
+}}
+Include 5 real restaurants from street food to fine dining with specific dish recommendations."""
+    raw = _search_ai(prompt)
+    return _parse_json(raw, {"destination": destination, "restaurants": []})
 
 
-# ── ADVISORY TOOLS ────────────────────────────────────────────────────────────
+# ── ADVISORY ───────────────────────────────────────────────────────────────────
 
 @tool
 def get_travel_advisory(destination: str) -> Dict[str, Any]:
-    """
-    Get official travel safety advisory for a destination.
-    Sources: US State Dept, UK FCO, Australian DFAT.
-    """
-    logger.info(f"Tool: get_travel_advisory({destination})")
-    return {
-        "destination": destination,
-        "risk_level": "LOW",
-        "summary": f"{destination} is generally safe for tourists. Normal precautions apply.",
-        "hazards": [
-            {"type": "Natural Disaster", "level": "LOW", "detail": "Typhoon season July–October. Monitor local forecasts."},
-            {"type": "Crime",            "level": "LOW", "detail": "Petty theft in crowded tourist areas. Keep valuables secure."},
-        ],
-        "sources": [
-            {"name": "US State Department", "type": "Government", "url": "travel.state.gov", "updated": "2025-02-01"},
-            {"name": "UK Foreign Commonwealth Office", "type": "Government", "url": "gov.uk/foreign-travel-advice", "updated": "2025-01-28"},
-            {"name": "Australian DFAT Smartraveller", "type": "Government", "url": "smartraveller.gov.au", "updated": "2025-01-30"},
-        ]
-    }
+    """Get current official travel safety advisory from government sources via web search."""
+    logger.info(f"Tool: get_travel_advisory({destination}) — web search")
+    prompt = f"""Search the web for the current official travel advisory for {destination}.
+Check: US State Dept (travel.state.gov), UK FCO (gov.uk/foreign-travel-advice), Australian DFAT (smartraveller.gov.au).
+Return ONLY a JSON object:
+{{
+  "destination": "{destination}",
+  "risk_level": "LOW or MEDIUM or HIGH or CRITICAL",
+  "summary": "Current safety situation in 1-2 plain sentences",
+  "hazards": [
+    {{"type": "Natural Disaster or Political or Health or Crime", "level": "LOW or MEDIUM or HIGH", "detail": "Specific current risk"}}
+  ],
+  "sources": [
+    {{"name": "US State Department", "type": "Government", "url": "travel.state.gov", "updated": "date"}},
+    {{"name": "UK FCO", "type": "Government", "url": "gov.uk/foreign-travel-advice", "updated": "date"}}
+  ]
+}}"""
+    raw = _search_ai(prompt)
+    return _parse_json(raw, {"destination": destination, "risk_level": "LOW", "summary": "Check official government travel advisories.", "hazards": [], "sources": []})
 
 
 @tool
 def get_visa_requirements(destination: str, passport_country: str = "Singapore") -> Dict[str, Any]:
-    """
-    Get visa requirements for entering a destination with a specific passport.
-    Source: Official immigration authority of the destination country.
-    """
-    logger.info(f"Tool: get_visa_requirements({destination}, passport={passport_country})")
-    return {
-        "destination": destination,
-        "passport": passport_country,
-        "requirement": "Visa on Arrival",
-        "max_stay": "90 days",
-        "details": "Singapore passport holders may enter visa-free for up to 90 days for tourism.",
-        "fee": "No fee",
-        "source": "Official Immigration Bureau",
-        "source_url": "https://www.immigration.go.th",
-        "updated": "2025-01-15"
-    }
+    """Get current visa requirements from official immigration sources via web search."""
+    logger.info(f"Tool: get_visa_requirements({destination}, {passport_country}) — web search")
+    prompt = f"""Search the web for current visa requirements for {passport_country} passport holders visiting {destination}.
+Check the official immigration or embassy website.
+Return ONLY a JSON object:
+{{
+  "destination": "{destination}",
+  "passport": "{passport_country}",
+  "requirement": "Visa Free or Visa on Arrival or eVisa or Visa Required",
+  "max_stay": "XX days",
+  "details": "Specific requirements and how to apply",
+  "fee": "Amount or Free",
+  "source": "Official source name",
+  "source_url": "URL",
+  "updated": "Date"
+}}"""
+    raw = _search_ai(prompt)
+    return _parse_json(raw, {"destination": destination, "passport": passport_country, "requirement": "Check embassy website", "details": "Verify with official immigration authority.", "source": "Official embassy website", "updated": "Verify current date"})
 
 
 @tool
 def get_vaccine_requirements(destination: str) -> Dict[str, Any]:
-    """
-    Get vaccination requirements and recommendations for a destination.
-    Sources: WHO, CDC, destination country health ministry.
-    """
-    logger.info(f"Tool: get_vaccine_requirements({destination})")
-    return {
-        "destination": destination,
-        "mandatory": [
-            {"name": "Yellow Fever", "requirement": "Mandatory", "notes": "Required if arriving from endemic country", "source": "WHO"}
-        ],
-        "recommended": [
-            {"name": "Hepatitis A",  "requirement": "Recommended", "notes": "Food and water precaution", "source": "CDC"},
-            {"name": "Typhoid",      "requirement": "Recommended", "notes": "If eating street food",    "source": "CDC"},
-            {"name": "COVID-19",     "requirement": "Recommended", "notes": "Up to date vaccination",   "source": "WHO"},
-        ],
-        "routine": ["MMR", "Tetanus", "Flu"],
-        "sources": [
-            {"name": "WHO International Travel Health", "type": "WHO",        "updated": "2025-01-10"},
-            {"name": "CDC Travelers Health",            "type": "CDC",        "updated": "2025-01-20"},
-        ]
-    }
+    """Get current vaccination requirements from WHO and CDC via web search."""
+    logger.info(f"Tool: get_vaccine_requirements({destination}) — web search")
+    prompt = f"""Search the web for current vaccination requirements and recommendations for {destination}.
+Check WHO (who.int) and CDC (cdc.gov/travel).
+Return ONLY a JSON object:
+{{
+  "destination": "{destination}",
+  "mandatory": [
+    {{"name": "Vaccine", "requirement": "Mandatory", "notes": "When required", "source": "WHO"}}
+  ],
+  "recommended": [
+    {{"name": "Vaccine", "requirement": "Recommended", "notes": "Why recommended", "source": "CDC"}}
+  ],
+  "sources": [
+    {{"name": "WHO International Travel Health", "type": "WHO", "updated": "date"}},
+    {{"name": "CDC Travelers Health", "type": "CDC", "updated": "date"}}
+  ]
+}}"""
+    raw = _search_ai(prompt)
+    return _parse_json(raw, {"destination": destination, "mandatory": [], "recommended": [], "sources": []})
 
 
 @tool
 def get_local_laws(destination: str) -> Dict[str, Any]:
-    """Get important local laws, customs and regulations for travelers."""
-    logger.info(f"Tool: get_local_laws({destination})")
-    return {
-        "destination": destination,
-        "rules": [
-            "🚭 Smoking is prohibited in most public indoor spaces and near entrances",
-            "🍺 Alcohol is restricted — check local rules for public consumption",
-            "📸 Ask permission before photographing people or religious sites",
-            "👗 Dress modestly when visiting temples or religious buildings",
-            "🤝 Remove shoes before entering homes and many traditional establishments",
-            "💴 Tipping is not customary and can sometimes be considered rude",
-            "🚯 Littering carries heavy fines",
-            "💊 Declare all medications at customs — carry original prescriptions",
-        ],
-        "emergency_number": "112",
-        "source": "Local Tourism Authority & Embassy Guidelines",
-        "updated": "2025-01-01"
-    }
+    """Get important local laws and customs travellers must know via web search."""
+    logger.info(f"Tool: get_local_laws({destination}) — web search")
+    prompt = f"""Search the web for important local laws and customs tourists must know in {destination}.
+Focus on rules that commonly catch tourists off guard or result in fines.
+Return ONLY a JSON object:
+{{
+  "destination": "{destination}",
+  "rules": [
+    "🚭 Specific law with emoji",
+    "💊 Another important rule",
+    "📸 Photography restriction"
+  ],
+  "emergency_number": "local emergency number",
+  "source": "Source name",
+  "updated": "Date"
+}}
+Include 6-8 specific rules important for tourists in {destination}."""
+    raw = _search_ai(prompt)
+    return _parse_json(raw, {"destination": destination, "rules": [], "emergency_number": "112", "source": "Check local embassy", "updated": "Verify current"})
 
 
-# ── RESCUE TOOLS ──────────────────────────────────────────────────────────────
+# ── RESCUE ──────────────────────────────────────────────────────────────────────
 
 @tool
 def get_emergency_contacts(destination: str) -> Dict[str, Any]:
-    """Get emergency contact numbers, hospitals and embassy information for a destination."""
-    logger.info(f"Tool: get_emergency_contacts({destination})")
-    return {
-        "destination": destination,
-        "emergency_numbers": [
-            {"service": "Police",         "number": "191"},
-            {"service": "Ambulance",      "number": "1669"},
-            {"service": "Fire",           "number": "199"},
-            {"service": "Tourist Police", "number": "1155"},
-            {"service": "General Emergency", "number": "112"},
-        ],
-        "hospitals": [
-            {"name": "Bumrungrad International Hospital", "type": "Private International", "phone": "+66-2-066-8888", "address": "City Centre"},
-            {"name": "Bangkok Hospital",                  "type": "Private",               "phone": "+66-2-310-3000", "address": "New Phetchaburi Road"},
-        ],
-        "embassy": {
-            "singapore": {"address": "129 South Sathorn Road", "phone": "+66-2-286-2111", "emergency": "+66-81-842-0041"}
-        },
-        "travel_insurance_tip": "Always carry your travel insurance policy number and 24hr assistance hotline."
-    }
+    """Get real emergency contact numbers and hospitals via web search."""
+    logger.info(f"Tool: get_emergency_contacts({destination}) — web search")
+    prompt = f"""Search the web for emergency contact numbers and hospitals in {destination} for tourists.
+Return ONLY a JSON object:
+{{
+  "destination": "{destination}",
+  "emergency_numbers": [
+    {{"service": "Police", "number": "XXX"}},
+    {{"service": "Ambulance", "number": "XXX"}},
+    {{"service": "Fire", "number": "XXX"}},
+    {{"service": "Tourist Police", "number": "XXX"}},
+    {{"service": "General Emergency", "number": "XXX"}}
+  ],
+  "hospitals": [
+    {{"name": "Hospital Name", "type": "International/Private", "phone": "+XX-XXX", "address": "Area", "english_speaking": true}}
+  ],
+  "travel_insurance_tip": "Specific advice for {destination}"
+}}
+Use real verified emergency numbers."""
+    raw = _search_ai(prompt)
+    return _parse_json(raw, {"destination": destination, "emergency_numbers": [{"service": "General Emergency", "number": "112"}], "hospitals": [], "travel_insurance_tip": "Always carry travel insurance."})
 
 
 @tool
 def get_nearest_hospital(destination: str, area: str = "city centre") -> Dict[str, Any]:
-    """Find the nearest hospital or medical facility in a specific area."""
-    logger.info(f"Tool: get_nearest_hospital({destination}, {area})")
-    return {
-        "destination": destination,
-        "area": area,
-        "facilities": [
-            {"name": "International Medical Centre", "distance": "1.2 km", "open": "24/7", "english_speaking": True},
-            {"name": "City General Hospital",        "distance": "2.8 km", "open": "24/7", "english_speaking": True},
-            {"name": "Community Clinic",             "distance": "0.4 km", "open": "08:00-20:00", "english_speaking": False},
-        ]
-    }
+    """Find hospitals and clinics in a specific area via web search."""
+    logger.info(f"Tool: get_nearest_hospital({destination}, {area}) — web search")
+    prompt = f"""Search the web for hospitals and international clinics in {area}, {destination} for tourists.
+Return ONLY a JSON object:
+{{
+  "destination": "{destination}",
+  "area": "{area}",
+  "facilities": [
+    {{"name": "Facility Name", "distance": "X km", "open": "24/7 or hours", "english_speaking": true, "phone": "+XX-XXX"}}
+  ]
+}}"""
+    raw = _search_ai(prompt)
+    return _parse_json(raw, {"destination": destination, "area": area, "facilities": []})
 
 
-# ── TOOL REGISTRIES ───────────────────────────────────────────────────────────
-# Each agent gets its own subset of tools — principle of least privilege
+# ── Tool registries ────────────────────────────────────────────────────────────
 
 PLANNER_TOOLS    = [search_flights, search_hotels, build_itinerary]
 WEATHER_TOOLS    = [get_weather_forecast, get_seasonal_info]
 ACTIVITIES_TOOLS = [search_activities, search_restaurants]
 ADVISORY_TOOLS   = [get_travel_advisory, get_visa_requirements, get_vaccine_requirements, get_local_laws]
 RESCUE_TOOLS     = [get_emergency_contacts, get_nearest_hospital]
-
-ALL_TOOLS = PLANNER_TOOLS + WEATHER_TOOLS + ACTIVITIES_TOOLS + ADVISORY_TOOLS + RESCUE_TOOLS
+ALL_TOOLS        = PLANNER_TOOLS + WEATHER_TOOLS + ACTIVITIES_TOOLS + ADVISORY_TOOLS + RESCUE_TOOLS

@@ -1,25 +1,9 @@
 """
-Graph Builder
--------------
-This is where LangGraph wires everything together.
+Graph Builder — wires all nodes into the LangGraph StateGraph.
 
-The graph looks like this:
-
-  [START]
-     │
-     ▼
- [supervisor]  ← decides which agents to call
-     │
-     ├─── "planner"    ──► [planner_node]    ──┐
-     ├─── "weather"    ──► [weather_node]    ──┤
-     ├─── "activities" ──► [activities_node] ──┤── all run in PARALLEL
-     ├─── "advisory"   ──► [advisory_node]   ──┤
-     └─── "rescue"     ──► [rescue_node]     ──┘
-                                                │
-                                                ▼
-                                         [synthesiser]  ← merges all outputs
-                                                │
-                                              [END]
+Flow:
+  START → clarifier → (needs info?) → END (shows question)
+                    → supervisor → [parallel agents] → synthesiser → END
 """
 
 import logging
@@ -29,18 +13,12 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
 
 from app.graph.state import TravelState
+from app.graph.clarifier import clarifier_node
 from app.graph.supervisor import supervisor_node
 from app.graph.synthesiser import synthesiser_node
-from app.graph.nodes import (
-    planner_node,
-    weather_node,
-    activities_node,
-    advisory_node,
-    rescue_node,
-)
-from app.config import settings
+from app.graph.nodes import planner_node, weather_node, activities_node, advisory_node, rescue_node
 
-logger = logging.getLogger("TRAVELBUDDY.graph")
+logger = logging.getLogger("voyager.graph")
 
 AGENT_NODE_MAP = {
     "planner":    planner_node,
@@ -51,75 +29,57 @@ AGENT_NODE_MAP = {
 }
 
 
+def route_after_clarifier(state: TravelState) -> str:
+    if state.get("clarification_needed"):
+        logger.info("Clarifier: question sent → ending run")
+        return "end"
+    return "supervisor"
+
+
 def route_to_agents(state: TravelState) -> List[str]:
-    """
-    Conditional edge function — called after supervisor runs.
-    Returns list of node names to execute next (in parallel).
-    """
-    next_agents = state.get("next_agents", [])
-    valid = [a for a in next_agents if a in AGENT_NODE_MAP]
-
-    if not valid or "orchestrator_only" in next_agents:
-        logger.info("Routing: no agents → synthesiser directly")
+    valid = [a for a in state.get("next_agents", []) if a in AGENT_NODE_MAP]
+    if not valid or "orchestrator_only" in state.get("next_agents", []):
         return ["synthesiser"]
-
-    logger.info(f"Routing: dispatching to agents → {valid}")
+    logger.info(f"Routing to: {valid}")
     return valid
 
 
 def build_graph():
-    """
-    Construct and compile the LangGraph StateGraph.
-    Uses MemorySaver — session memory, fast, no C++ dependencies needed.
-    Conversations persist for the duration of the server session.
-    """
     builder = StateGraph(TravelState)
 
-    # Register all nodes
-    builder.add_node("supervisor",   supervisor_node)
-    builder.add_node("planner",      planner_node)
-    builder.add_node("weather",      weather_node)
-    builder.add_node("activities",   activities_node)
-    builder.add_node("advisory",     advisory_node)
-    builder.add_node("rescue",       rescue_node)
-    builder.add_node("synthesiser",  synthesiser_node)
+    builder.add_node("clarifier",   clarifier_node)
+    builder.add_node("supervisor",  supervisor_node)
+    builder.add_node("planner",     planner_node)
+    builder.add_node("weather",     weather_node)
+    builder.add_node("activities",  activities_node)
+    builder.add_node("advisory",    advisory_node)
+    builder.add_node("rescue",      rescue_node)
+    builder.add_node("synthesiser", synthesiser_node)
 
-    # Entry point
-    builder.add_edge(START, "supervisor")
+    builder.add_edge(START, "clarifier")
 
-    # Conditional routing from supervisor → parallel agents
     builder.add_conditional_edges(
-        "supervisor",
-        route_to_agents,
-        {
-            "planner":     "planner",
-            "weather":     "weather",
-            "activities":  "activities",
-            "advisory":    "advisory",
-            "rescue":      "rescue",
-            "synthesiser": "synthesiser",
-        },
+        "clarifier", route_after_clarifier,
+        {"supervisor": "supervisor", "end": END},
     )
 
-    # All agents flow into synthesiser
-    for agent_name in AGENT_NODE_MAP:
-        builder.add_edge(agent_name, "synthesiser")
+    builder.add_conditional_edges(
+        "supervisor", route_to_agents,
+        {"planner":"planner","weather":"weather","activities":"activities",
+         "advisory":"advisory","rescue":"rescue","synthesiser":"synthesiser"},
+    )
 
-    # Synthesiser exits the graph
+    for name in AGENT_NODE_MAP:
+        builder.add_edge(name, "synthesiser")
+
     builder.add_edge("synthesiser", END)
 
-    # MemorySaver — no SQLite, no C++ needed
-    checkpointer = MemorySaver()
-    logger.info("Graph: using MemorySaver (session memory)")
-
-    graph = builder.compile(checkpointer=checkpointer)
-    logger.info("Graph compiled successfully")
+    graph = builder.compile(checkpointer=MemorySaver())
+    logger.info("Graph compiled ✅")
     return graph
 
 
-# Singleton — built once at startup
 _graph = None
-
 
 def get_graph():
     global _graph
