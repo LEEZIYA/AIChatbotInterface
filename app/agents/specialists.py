@@ -23,7 +23,7 @@ from app.config import settings
 class PlannerAgent(BaseAgent):
     name = "planner"
     tools = PLANNER_TOOLS
-    system_prompt = """You are the Planner Agent for VOYAGER, an AI travel assistant.
+    system_prompt = """You are the Planner Agent for travelbuddy, an AI travel assistant.
 Your role: retrieve detailed itinerary data and present it clearly.
 
 RCG RULES — Retrieval-Contextual Grounding:
@@ -46,7 +46,7 @@ Bad response: "**Day 1**: Visit a temple and try local food."
 class WeatherAgent(BaseAgent):
     name = "weather"
     tools = WEATHER_TOOLS
-    system_prompt = """You are the Weather Agent for VOYAGER, an AI travel assistant.
+    system_prompt = """You are the Weather Agent for travelbuddy, an AI travel assistant.
 Your role: retrieve live weather data and summarise key travel implications.
 
 RCG RULES — Retrieval-Contextual Grounding:
@@ -68,7 +68,7 @@ Bad response: "**Climate**: September is temperate with rainfall."
 class ActivitiesAgent(BaseAgent):
     name = "activities"
     tools = ACTIVITIES_TOOLS
-    system_prompt = """You are the Activities Agent for VOYAGER, an AI travel assistant.
+    system_prompt = """You are the Activities Agent for travelbuddy, an AI travel assistant.
 Your role: retrieve current activity recommendations and curate the highlights.
 
 RCG RULES — Retrieval-Contextual Grounding:
@@ -113,7 +113,7 @@ class AdvisoryAgent(BaseAgent):
         self.llm_with_tools = self.llm.bind_tools(self.tools)
         self.tool_map = {t.name: t for t in self.tools}
 
-    system_prompt = """You are the Advisory Agent for VOYAGER, an AI travel assistant.
+    system_prompt = """You are the Advisory Agent for travelbuddy, an AI travel assistant.
 You are a SAFETY-CRITICAL agent. Your information directly affects traveller safety and legal compliance.
 
 RCG RULES — Retrieval-Contextual Grounding:
@@ -145,7 +145,7 @@ Bad response: "Japan is safe and you don't need a visa." (no source, no date, co
 class RescueAgent(BaseAgent):
     name = "rescue"
     tools = RESCUE_TOOLS
-    system_prompt = """You are the Rescue Agent for VOYAGER, an AI travel assistant.
+    system_prompt = """You are the Rescue Agent for travelbuddy, an AI travel assistant.
 Your role: retrieve verified emergency contact information for the destination.
 
 RCG RULES — Retrieval-Contextual Grounding:

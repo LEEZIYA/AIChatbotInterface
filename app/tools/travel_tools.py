@@ -18,7 +18,7 @@ import json
 from openai import OpenAI
 from app.config import settings
 
-logger = logging.getLogger("voyager.tools")
+logger = logging.getLogger("travelbuddy.tools")
 
 _client = None
 

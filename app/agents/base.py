@@ -16,7 +16,7 @@ from langchain_core.tools import BaseTool
 
 from app.config import settings
 
-logger = logging.getLogger("voyager.base_agent")
+logger = logging.getLogger("travelbuddy.base_agent")
 
 
 class BaseAgent:

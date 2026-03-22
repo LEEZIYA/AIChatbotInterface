@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VOYAGER — AI Travel Intelligence</title>
+<title>travelbuddy — AI Travel Intelligence</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
 <style>
@@ -171,7 +171,7 @@
 <body>
 
 <header>
-  <div class="logo">VOYAGER<span>AI TRAVEL INTELLIGENCE</span></div>
+  <div class="logo">travelbuddy<span>AI TRAVEL INTELLIGENCE</span></div>
   <div style="display:flex;align-items:center;gap:20px">
     <div class="status-pill"><div class="status-dot"></div>6 AGENTS ONLINE</div>
     <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text-dim)">v3.0.0</div>
@@ -604,7 +604,7 @@ async function sendMessage() {
     removeTyping();
     AGENTS.forEach(a => setAgentStatus(a.id, 'idle'));
     setAgentStatus('orchestrator', 'active');
-    console.error('VOYAGER error:', err);
+    console.error('travelbuddy error:', err);
     addMessage('orchestrator', `Something went wrong: ${err.message}. Please try again.`);
   }
 }
@@ -629,7 +629,7 @@ function addWelcomeMessage() {
   const div = document.createElement('div');
   div.style.cssText = 'text-align:center;padding:30px 20px;';
   div.innerHTML = `
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:4px;color:var(--accent);text-shadow:0 0 20px rgba(0,212,255,0.3)">VOYAGER</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:4px;color:var(--accent);text-shadow:0 0 20px rgba(0,212,255,0.3)">travelbuddy</div>
     <div style="font-size:12px;color:var(--text-dim);font-family:'DM Mono',monospace;letter-spacing:2px;margin-top:4px;margin-bottom:20px">AI TRAVEL INTELLIGENCE v3</div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;max-width:480px;margin:0 auto 20px">
       ${AGENTS.filter(a=>a.id!=='orchestrator').map(a=>`

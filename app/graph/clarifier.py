@@ -15,9 +15,9 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from app.config import settings
 from app.graph.state import TravelState
 
-logger = logging.getLogger("voyager.clarifier")
+logger = logging.getLogger("travelbuddy.clarifier")
 
-CLARIFIER_SYSTEM = """You are a context extractor for VOYAGER, an AI travel assistant.
+CLARIFIER_SYSTEM = """You are a context extractor for travelbuddy, an AI travel assistant.
 
 Read the FULL conversation carefully. Users often give short answers to questions
 asked in previous turns — you MUST link these together.

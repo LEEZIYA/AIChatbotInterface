@@ -15,9 +15,9 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from app.config import settings
 from app.graph.state import TravelState
 
-logger = logging.getLogger("voyager.supervisor")
+logger = logging.getLogger("travelbuddy.supervisor")
 
-SUPERVISOR_SYSTEM = """You are the Supervisor of VOYAGER, an AI travel intelligence system.
+SUPERVISOR_SYSTEM = """You are the Supervisor of travelbuddy, an AI travel intelligence system.
 You coordinate 5 specialist agents:
   - planner    : flights, hotels, day-by-day itineraries, routes
   - weather    : forecasts, seasonal patterns, packing advice
