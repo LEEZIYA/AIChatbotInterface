@@ -1,25 +1,25 @@
 version: '3.8'
 
 services:
-  rescue-agent:
-    build: .
-    container_name: rescue-agent-mcp
+  rescue-agent-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: rescue-agent-api
     ports:
-      - "8501:8501"
+      - "8000:8000"
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - USE_MCP=${USE_MCP:-true}
       - USE_MOCK_APIS=${USE_MOCK_APIS:-true}
       - LLM_MODEL=${LLM_MODEL:-gpt-4-turbo-preview}
-      - LLM_TEMPERATURE=${LLM_TEMPERATURE:-0.7}
-      - LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-2000}
     env_file:
       - .env
     volumes:
       - ./logs:/app/logs
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
