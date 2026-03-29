@@ -15,9 +15,9 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from app.config import settings
 from app.graph.state import TravelState
 
-logger = logging.getLogger("travelbuddy.supervisor")
+logger = logging.getLogger("voyager.supervisor")
 
-SUPERVISOR_SYSTEM = """You are the Supervisor of travelbuddy, an AI travel intelligence system.
+SUPERVISOR_SYSTEM = """You are the Supervisor of VOYAGER, an AI travel intelligence system.
 You coordinate 5 specialist agents:
   - planner    : flights, hotels, day-by-day itineraries, routes
   - weather    : forecasts, seasonal patterns, packing advice
@@ -52,7 +52,7 @@ async def supervisor_node(state: TravelState) -> Dict[str, Any]:
         model=settings.OPENAI_MODEL_ROUTER,
         api_key=settings.OPENAI_API_KEY,
         temperature=0,
-        response_format={"type": "json_object"},
+        model_kwargs={"response_format": {"type": "json_object"}},
     )
 
     context_parts = []

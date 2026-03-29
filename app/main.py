@@ -1,4 +1,4 @@
-"""travelbuddy v4 — RCG Multi-Agent Travel Intelligence"""
+"""VOYAGER v4 — RCG Multi-Agent Travel Intelligence"""
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,19 +12,19 @@ from app.graph.builder import get_graph
 from app.config import settings
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s — %(message)s")
-logger = logging.getLogger("travelbuddy")
+logger = logging.getLogger("voyager")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info(f"🚀 travelbuddy v4 starting — env={settings.ENV}")
+    logger.info(f"🚀 VOYAGER v4 starting — env={settings.ENV}")
     get_graph()
     logger.info("✅ LangGraph ready")
     yield
-    logger.info("travelbuddy shutting down")
+    logger.info("VOYAGER shutting down")
 
 
-app = FastAPI(title="travelbuddy Travel Intelligence", version=settings.APP_VERSION, lifespan=lifespan)
+app = FastAPI(title="VOYAGER Travel Intelligence", version=settings.APP_VERSION, lifespan=lifespan)
 
 app.add_middleware(CORSMiddleware, allow_origins=settings.ALLOWED_ORIGINS,
                    allow_methods=["*"], allow_headers=["*"])

@@ -1,4 +1,4 @@
-# ✈️ travelbuddy v4 — RCG Multi-Agent Travel Intelligence
+# ✈️ VOYAGER v4 — RCG Multi-Agent Travel Intelligence
 
 A production-grade multi-agent AI travel assistant built with LangGraph, FastAPI and OpenAI.
 Uses RCG (Retrieval-Contextual Grounding) prompting — every agent retrieves live data from
@@ -30,6 +30,52 @@ uvicorn app.main:app --reload --port 8000
 ```
 
 Open your browser → **http://localhost:8000**
+
+---
+
+## Docker steps
+
+---
+
+# 1. Extract the zip, enter the folder
+cd voyager-v4
+
+# 2. Create your .env file
+copy .env.example .env
+# Edit .env → set OPENAI_API_KEY=sk-...
+
+# 3. Build the image
+docker build -t voyager:v4 .
+
+# 4. Run (choose one)
+
+# Option A — simple command
+docker run -d --name voyager_app -p 8000:8000 --env-file .env voyager:v4
+
+# Option B — docker compose (recommended)
+docker compose up -d
+
+# 5. Open browser
+# http://localhost:8000
+
+# 6. Watch logs
+docker logs voyager_app -f
+# or
+docker compose logs -f
+
+# everytime a change is made
+# 1. Stop and remove the old container
+docker rm -f voyager_app
+
+# 2. Then start fresh
+docker compose up --build -d
+
+---
+
+# -d              → run in background (detached)
+# --name          → give the container a name
+# -p 8000:8000    → map port 8000 on your computer to port 8000 in the container
+# --env-file .env → load your API key and settings from .env
 
 ---
 
@@ -109,7 +155,7 @@ All tools use OpenAI with `web_search_preview` — no hardcoded data anywhere.
 ## Project Structure
 
 ```
-travelbuddy-v4/
+voyager-v4/
 ├── app/
 │   ├── main.py                    ← FastAPI entry point
 │   ├── config.py                  ← Settings from .env (model routing config)

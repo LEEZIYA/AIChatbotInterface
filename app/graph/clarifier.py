@@ -15,9 +15,9 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from app.config import settings
 from app.graph.state import TravelState
 
-logger = logging.getLogger("travelbuddy.clarifier")
+logger = logging.getLogger("voyager.clarifier")
 
-CLARIFIER_SYSTEM = """You are a context extractor for travelbuddy, an AI travel assistant.
+CLARIFIER_SYSTEM = """You are a context extractor for VOYAGER, an AI travel assistant.
 
 Read the FULL conversation carefully. Users often give short answers to questions
 asked in previous turns — you MUST link these together.
@@ -99,7 +99,7 @@ async def clarifier_node(state: TravelState) -> Dict[str, Any]:
         model=settings.OPENAI_MODEL_ROUTER,
         api_key=settings.OPENAI_API_KEY,
         temperature=0,
-        response_format={"type": "json_object"},
+        model_kwargs={"response_format": {"type": "json_object"}},
     )
 
     response = await llm.ainvoke([

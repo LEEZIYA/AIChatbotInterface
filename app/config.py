@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     OPENAI_MODEL_ROUTER: str = "gpt-4o-mini" # routing only: clarifier, supervisor
 
     # Memory
-    SQLITE_DB_PATH: str = "travelbuddy_memory.db"
+    SQLITE_DB_PATH: str = "voyager_memory.db"
 
     # CORS
     ALLOWED_ORIGINS: List[str] = ["*"]

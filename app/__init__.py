@@ -1,1 +1,1 @@
-"""travelbuddy v3"""
+"""VOYAGER v3"""

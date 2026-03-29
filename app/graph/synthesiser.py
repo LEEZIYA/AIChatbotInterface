@@ -20,7 +20,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from app.config import settings
 from app.graph.state import TravelState, AgentResponse
 
-logger = logging.getLogger("travelbuddy.synthesiser")
+logger = logging.getLogger("voyager.synthesiser")
 
 
 def _agent_role(name: str) -> str:
@@ -35,7 +35,7 @@ def _agent_role(name: str) -> str:
     return roles.get(name, "General travel assistance")
 
 
-SYNTHESISER_SYSTEM = """You are the Response Synthesiser for travelbuddy, an AI travel intelligence system.
+SYNTHESISER_SYSTEM = """You are the Response Synthesiser for VOYAGER, an AI travel intelligence system.
 
 You receive structured outputs from specialist agents wrapped in <agent_output> XML tags.
 Each tag contains:
@@ -157,7 +157,7 @@ async def synthesiser_node(state: TravelState) -> Dict[str, Any]:
         model=settings.OPENAI_MODEL,
         api_key=settings.OPENAI_API_KEY,
         temperature=0.3,
-        response_format={"type": "json_object"},
+        model_kwargs={"response_format": {"type": "json_object"}},
     )
 
     response = await llm.ainvoke([
@@ -221,7 +221,7 @@ def _sanitise(final: Dict, responses: List[AgentResponse], destination: Optional
 
 def _empty() -> Dict:
     return {
-        "orchestrator_message": "Hello! I am travelbuddy, your AI travel assistant. Ask me anything about your trip.",
+        "orchestrator_message": "Hello! I am VOYAGER, your AI travel assistant. Ask me anything about your trip.",
         "destination": None, "agents_involved": ["orchestrator"],
         "agent_responses": {
             "planner":    {"active": False, "response": "", "itinerary": None},

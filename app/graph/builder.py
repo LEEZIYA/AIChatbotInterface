@@ -18,7 +18,7 @@ from app.graph.supervisor import supervisor_node
 from app.graph.synthesiser import synthesiser_node
 from app.graph.nodes import planner_node, weather_node, activities_node, advisory_node, rescue_node
 
-logger = logging.getLogger("travelbuddy.graph")
+logger = logging.getLogger("voyager.graph")
 
 AGENT_NODE_MAP = {
     "planner":    planner_node,

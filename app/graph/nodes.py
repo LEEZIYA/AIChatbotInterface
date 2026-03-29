@@ -18,7 +18,7 @@ from app.agents.specialists import (
     PlannerAgent, WeatherAgent, ActivitiesAgent, AdvisoryAgent, RescueAgent,
 )
 
-logger = logging.getLogger("travelbuddy.nodes")
+logger = logging.getLogger("voyager.nodes")
 
 
 def _build_context_packet(state: TravelState, agent_name: str) -> str:
