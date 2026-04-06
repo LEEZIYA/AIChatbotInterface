@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>travelbuddy v4 — System Overview</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --void: #080c12; --deep: #0d1520; --surface: #111d2e; --panel: #162236;
+    --border: #1e3247; --border-hi: #2a4a6a;
+    --accent: #00d4ff; --accent2: #00ff9d; --accent3: #ff6b35; --accent4: #ffd166;
+    --warn: #ff4757; --text: #c8dff0; --text-dim: #5a7a99; --text-bright: #e8f4ff;
+    --purple: #a78bfa; --green: #4ade80;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--void);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    padding: 40px 48px;
+    max-width: 960px;
+    margin: 0 auto;
+  }
+  body::before {
+    content:''; position:fixed; inset:0;
+    background-image: linear-gradient(rgba(0,212,255,0.02) 1px,transparent 1px),
+                      linear-gradient(90deg,rgba(0,212,255,0.02) 1px,transparent 1px);
+    background-size: 40px 40px; pointer-events:none; z-index:0;
+  }
+  .content { position: relative; z-index:1; }
+
+  /* HEADER */
+  .header { margin-bottom: 48px; border-bottom: 1px solid var(--border); padding-bottom: 32px; }
+  .logo { font-family:'Bebas Neue',sans-serif; font-size:42px; letter-spacing:6px; color:var(--accent); text-shadow:0 0 30px rgba(0,212,255,0.3); }
+  .subtitle { font-family:'DM Mono',monospace; font-size:12px; letter-spacing:3px; color:var(--text-dim); margin-top:4px; }
+  .doc-title { font-size:18px; font-weight:500; color:var(--text-bright); margin-top:16px; }
+  .doc-meta { font-size:12px; color:var(--text-dim); font-family:'DM Mono',monospace; margin-top:6px; }
+
+  /* SECTION */
+  .section { margin-bottom: 48px; }
+  .section-title {
+    font-family:'DM Mono',monospace; font-size:11px; letter-spacing:2px;
+    text-transform:uppercase; color:var(--accent); margin-bottom:20px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .section-title::after { content:''; flex:1; height:1px; background:var(--border); }
+
+  /* DESCRIPTION */
+  .description { font-size:14px; line-height:1.8; color:var(--text); margin-bottom:16px; }
+  .description strong { color:var(--text-bright); font-weight:500; }
+
+  /* WORKFLOW DIAGRAM */
+  .workflow {
+    background: var(--deep);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    overflow: visible;
+  }
+
+  /* LAYER ROWS */
+  .layer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .layer-label {
+    width: 90px;
+    font-family:'DM Mono',monospace;
+    font-size:9px;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    text-align:right;
+    flex-shrink:0;
+  }
+  .layer-content { flex:1; }
+
+  /* NODE TYPES */
+  .node {
+    display:inline-flex; flex-direction:column; align-items:center; justify-content:center;
+    padding: 10px 16px; border-radius:8px; border:1px solid;
+    text-align:center; min-width:120px;
+  }
+  .node-title { font-size:13px; font-weight:500; }
+  .node-sub { font-size:10px; font-family:'DM Mono',monospace; margin-top:3px; opacity:0.8; }
+
+  .node-teal { background:rgba(0,255,157,0.08); border-color:rgba(0,255,157,0.3); color:var(--accent2); }
+  .node-blue { background:rgba(0,212,255,0.08); border-color:rgba(0,212,255,0.3); color:var(--accent); }
+  .node-amber { background:rgba(255,209,102,0.08); border-color:rgba(255,209,102,0.3); color:var(--accent4); }
+  .node-red { background:rgba(255,71,87,0.08); border-color:rgba(255,71,87,0.3); color:var(--warn); }
+  .node-orange { background:rgba(255,107,53,0.08); border-color:rgba(255,107,53,0.3); color:var(--accent3); }
+  .node-purple { background:rgba(167,139,250,0.08); border-color:rgba(167,139,250,0.3); color:var(--purple); }
+  .node-green { background:rgba(74,222,128,0.08); border-color:rgba(74,222,128,0.3); color:var(--green); }
+  .node-gray { background:rgba(255,255,255,0.04); border-color:var(--border); color:var(--text); }
+
+  /* ARROW */
+  .arrow-down {
+    display:flex; justify-content:center; align-items:center;
+    height:32px; color:var(--text-dim); font-size:18px;
+    margin-left:102px;
+  }
+  .arrow-label { font-size:10px; font-family:'DM Mono',monospace; color:var(--text-dim); margin-left:8px; }
+
+  /* PARALLEL AGENTS ROW */
+  .agents-row {
+    display:grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap:8px;
+    margin-left:102px;
+  }
+  .agent-node {
+    padding:12px 8px;
+    border-radius:8px;
+    border:1px solid;
+    text-align:center;
+  }
+  .agent-icon { font-size:18px; margin-bottom:6px; }
+  .agent-name { font-size:12px; font-weight:500; margin-bottom:4px; }
+  .agent-tools { font-size:9px; font-family:'DM Mono',monospace; color:var(--text-dim); line-height:1.5; }
+  .agent-badge {
+    display:inline-block; font-size:9px; padding:2px 6px;
+    border-radius:4px; margin-top:6px;
+    background:rgba(255,209,102,0.15); color:var(--accent4);
+    border:1px solid rgba(255,209,102,0.3); font-family:'DM Mono',monospace;
+  }
+
+  /* DIVIDER LINE */
+  .h-divider {
+    height:1px; background:var(--border);
+    margin: 16px 0 16px 102px;
+    border:none;
+  }
+
+  /* RCG CONTEXT BLOCK */
+  .rcg-block {
+    margin-left:102px;
+    padding:12px 16px;
+    background:rgba(255,209,102,0.05);
+    border:1px solid rgba(255,209,102,0.2);
+    border-radius:8px;
+    font-size:11px;
+    font-family:'DM Mono',monospace;
+    color:var(--accent4);
+    margin-bottom:8px;
+  }
+  .rcg-block-title { font-size:10px; letter-spacing:1px; margin-bottom:6px; opacity:0.7; }
+
+  /* AGENT TABLE */
+  .agent-table { width:100%; border-collapse:collapse; margin-top:16px; }
+  .agent-table th {
+    font-family:'DM Mono',monospace; font-size:10px; letter-spacing:1px;
+    text-transform:uppercase; color:var(--text-dim);
+    padding:10px 14px; text-align:left;
+    border-bottom:1px solid var(--border);
+  }
+  .agent-table td {
+    padding:12px 14px; font-size:13px; color:var(--text);
+    border-bottom:1px solid var(--border); vertical-align:top;
+    line-height:1.6;
+  }
+  .agent-table tr:last-child td { border-bottom:none; }
+  .agent-table td:first-child { white-space:nowrap; }
+  .chip {
+    display:inline-block; font-size:10px; padding:2px 8px;
+    border-radius:4px; font-family:'DM Mono',monospace;
+    margin-right:4px; margin-bottom:2px;
+  }
+  .chip-green { background:rgba(0,255,157,0.1); color:var(--accent2); border:1px solid rgba(0,255,157,0.2); }
+  .chip-blue  { background:rgba(0,212,255,0.1); color:var(--accent); border:1px solid rgba(0,212,255,0.2); }
+  .chip-amber { background:rgba(255,209,102,0.1); color:var(--accent4); border:1px solid rgba(255,209,102,0.2); }
+  .chip-red   { background:rgba(255,71,87,0.1); color:var(--warn); border:1px solid rgba(255,71,87,0.2); }
+  .chip-purple{ background:rgba(167,139,250,0.1); color:var(--purple); border:1px solid rgba(167,139,250,0.2); }
+  .chip-orange{ background:rgba(255,107,53,0.1); color:var(--accent3); border:1px solid rgba(255,107,53,0.2); }
+
+  /* RCG SECTION */
+  .rcg-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:16px; }
+  .rcg-card {
+    padding:20px; border-radius:8px;
+    background:var(--surface); border:1px solid var(--border);
+  }
+  .rcg-card-title { font-size:12px; font-weight:500; color:var(--text-bright); margin-bottom:8px; }
+  .rcg-card-file { font-family:'DM Mono',monospace; font-size:10px; color:var(--text-dim); margin-bottom:10px; }
+  .rcg-card-body { font-size:12px; color:var(--text); line-height:1.7; }
+  .rcg-card-body code { font-family:'DM Mono',monospace; font-size:11px; color:var(--accent); background:rgba(0,212,255,0.08); padding:1px 5px; border-radius:3px; }
+
+  /* MODEL TABLE */
+  .model-table { width:100%; border-collapse:collapse; margin-top:16px; }
+  .model-table th {
+    font-family:'DM Mono',monospace; font-size:10px; letter-spacing:1px;
+    text-transform:uppercase; color:var(--text-dim);
+    padding:10px 14px; text-align:left; border-bottom:1px solid var(--border);
+  }
+  .model-table td { padding:10px 14px; font-size:12px; border-bottom:1px solid var(--border); }
+  .model-table tr:last-child td { border-bottom:none; }
+
+  /* CONVERSATION EXAMPLE */
+  .convo { margin-top:16px; }
+  .convo-msg {
+    display:flex; gap:12px; margin-bottom:12px; align-items:flex-start;
+  }
+  .convo-role {
+    font-family:'DM Mono',monospace; font-size:9px; letter-spacing:1px;
+    text-transform:uppercase; padding:4px 8px; border-radius:4px;
+    white-space:nowrap; flex-shrink:0; margin-top:2px;
+  }
+  .role-user    { background:rgba(0,212,255,0.1); color:var(--accent); border:1px solid rgba(0,212,255,0.2); }
+  .role-system  { background:rgba(0,255,157,0.1); color:var(--accent2); border:1px solid rgba(0,255,157,0.2); }
+  .role-agent   { background:rgba(255,107,53,0.1); color:var(--accent3); border:1px solid rgba(255,107,53,0.2); }
+  .convo-text { font-size:13px; color:var(--text); line-height:1.6; padding-top:2px; }
+  .convo-text em { color:var(--text-dim); font-style:normal; font-size:11px; font-family:'DM Mono',monospace; }
+
+  /* FOOTER */
+  .footer { margin-top:48px; padding-top:24px; border-top:1px solid var(--border); font-size:11px; font-family:'DM Mono',monospace; color:var(--text-dim); display:flex; justify-content:space-between; }
+</style>
+</head>
+<body>
+<div class="content">
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo">travelbuddy</div>
+  <div class="subtitle">AI TRAVEL INTELLIGENCE SYSTEM</div>
+  <div class="doc-title">System Overview — Architecture & Agent Workflow</div>
+  <div class="doc-meta">Version 4.0.0 &nbsp;·&nbsp; LangGraph Multi-Agent &nbsp;·&nbsp; RCG Prompting &nbsp;·&nbsp; FastAPI + OpenAI</div>
+</div>
+
+<!-- SECTION 1: PROJECT OBJECTIVE -->
+<div class="section content">
+  <div class="section-title">01 &nbsp; Project Objective</div>
+
+  <p class="description">
+    travelbuddy was built to demonstrate a <strong>production-grade multi-agent AI system</strong> applied to
+    a real-world domain — travel planning. The project objective is to move beyond the common pattern
+    of a single LLM handling all tasks, and instead architect a system where <strong>specialised AI
+    agents collaborate</strong>, each owning a distinct area of responsibility, coordinated by a
+    supervisor and grounded in live retrieved data.
+  </p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px">
+
+    <div style="padding:20px;background:var(--surface);border:1px solid var(--border);border-radius:10px;border-left:3px solid var(--accent)">
+      <div style="font-size:11px;font-family:'DM Mono',monospace;letter-spacing:1px;color:var(--accent);margin-bottom:10px">PRIMARY OBJECTIVE</div>
+      <p style="font-size:13px;line-height:1.7;color:var(--text)">
+        Build a working multi-agent travel assistant that provides accurate, current and cited travel
+        information — covering trip planning, safety advisories, weather, activities and emergency
+        contacts — through a clean web interface backed by a production-ready API.
+      </p>
+    </div>
+
+    <div style="padding:20px;background:var(--surface);border:1px solid var(--border);border-radius:10px;border-left:3px solid var(--accent2)">
+      <div style="font-size:11px;font-family:'DM Mono',monospace;letter-spacing:1px;color:var(--accent2);margin-bottom:10px">TECHNICAL OBJECTIVE</div>
+      <p style="font-size:13px;line-height:1.7;color:var(--text)">
+        Demonstrate LangGraph supervisor pattern, RCG prompting, parallel agent execution,
+        live web search tool integration, session memory, and CI/CD-ready containerised deployment
+        as a reference architecture for production multi-agent systems.
+      </p>
+    </div>
+
+    <div style="padding:20px;background:var(--surface);border:1px solid var(--border);border-radius:10px;border-left:3px solid var(--accent3)">
+      <div style="font-size:11px;font-family:'DM Mono',monospace;letter-spacing:1px;color:var(--accent3);margin-bottom:10px">PROBLEM BEING SOLVED</div>
+      <p style="font-size:13px;line-height:1.7;color:var(--text)">
+        Travel planning requires information from multiple specialist domains simultaneously — safety
+        advisories, visa rules, weather, logistics and local knowledge. A single generalist LLM
+        produces generic, unverifiable answers. Domain-specific agents with live data retrieval
+        produce specific, sourced, trustworthy answers.
+      </p>
+    </div>
+
+    <div style="padding:20px;background:var(--surface);border:1px solid var(--border);border-radius:10px;border-left:3px solid var(--purple)">
+      <div style="font-size:11px;font-family:'DM Mono',monospace;letter-spacing:1px;color:var(--purple);margin-bottom:10px">KEY DESIGN PRINCIPLE</div>
+      <p style="font-size:13px;line-height:1.7;color:var(--text)">
+        RCG (Retrieval-Contextual Grounding) — agents are reasoners over retrieved data, not knowledge
+        stores. Every claim must be traceable to a live tool result. This is especially critical for
+        advisory information where outdated data can have real consequences for travellers.
+      </p>
+    </div>
+
+  </div>
+</div>
+
+<!-- SECTION 2: SCOPE -->
+<div class="section content">
+  <div class="section-title">02 &nbsp; Project Scope</div>
+
+  <p class="description">
+    The scope defines what travelbuddy covers in its current version, what is intentionally excluded,
+    and what is planned for future iterations.
+  </p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:20px;margin-bottom:24px">
+
+    <div style="padding:20px;background:rgba(0,255,157,0.04);border:1px solid rgba(0,255,157,0.2);border-radius:10px">
+      <div style="font-size:11px;font-family:'DM Mono',monospace;letter-spacing:1px;color:var(--accent2);margin-bottom:14px">IN SCOPE</div>
+      <ul style="list-style:none;font-size:12px;line-height:2;color:var(--text)">
+        <li>✓ Multi-turn travel planning conversations</li>
+        <li>✓ Day-by-day itinerary generation</li>
+        <li>✓ Live travel safety advisories</li>
+        <li>✓ Visa and vaccination requirements</li>
+        <li>✓ Local laws and customs</li>
+        <li>✓ Weather forecasts and packing advice</li>
+        <li>✓ Activity and restaurant recommendations</li>
+        <li>✓ Emergency contacts and hospitals</li>
+        <li>✓ Context clarification (destination, dates)</li>
+        <li>✓ Session memory within server uptime</li>
+        <li>✓ Docker containerised deployment</li>
+        <li>✓ REST API via FastAPI</li>
+      </ul>
+    </div>
+
+    <div style="padding:20px;background:rgba(255,71,87,0.04);border:1px solid rgba(255,71,87,0.2);border-radius:10px">
+      <div style="font-size:11px;font-family:'DM Mono',monospace;letter-spacing:1px;color:var(--warn);margin-bottom:14px">OUT OF SCOPE</div>
+      <ul style="list-style:none;font-size:12px;line-height:2;color:var(--text)">
+        <li>✗ Real flight and hotel booking</li>
+        <li>✗ Payment processing</li>
+        <li>✗ User authentication and accounts</li>
+        <li>✗ Persistent database across restarts</li>
+        <li>✗ Mobile native application</li>
+        <li>✗ Real-time flight tracking</li>
+        <li>✗ Currency conversion</li>
+        <li>✗ Map and GPS navigation</li>
+        <li>✗ Multi-language support</li>
+        <li>✗ Offline mode</li>
+        <li>✗ Push notifications</li>
+      </ul>
+    </div>
+
+    <div style="padding:20px;background:rgba(255,209,102,0.04);border:1px solid rgba(255,209,102,0.2);border-radius:10px">
+      <div style="font-size:11px;font-family:'DM Mono',monospace;letter-spacing:1px;color:var(--accent4);margin-bottom:14px">FUTURE SCOPE</div>
+      <ul style="list-style:none;font-size:12px;line-height:2;color:var(--text)">
+        <li>◷ SQLite persistent memory</li>
+        <li>◷ Evaluator and reflection loop</li>
+        <li>◷ Real booking API integrations</li>
+        <li>◷ GitHub Actions CI/CD pipeline</li>
+        <li>◷ User login and trip history</li>
+        <li>◷ MCP server integration</li>
+        <li>◷ Local LLM support via Ollama</li>
+        <li>◷ Multi-destination planning</li>
+        <li>◷ Budget optimisation agent</li>
+        <li>◷ Group travel coordination</li>
+        <li>◷ Real-time disruption alerts</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div style="padding:20px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+      <div style="font-size:11px;font-family:'DM Mono',monospace;letter-spacing:1px;color:var(--text-dim);margin-bottom:12px">ASSUMPTIONS</div>
+      <ul style="list-style:none;font-size:12px;line-height:2;color:var(--text)">
+        <li>• User has a valid OpenAI API key with GPT-4o access</li>
+        <li>• Python 3.11+ or Docker Desktop is installed</li>
+        <li>• Active internet connection required for web search tools</li>
+        <li>• Advisory accuracy depends on OpenAI web search quality</li>
+        <li>• Users must independently verify visa and vaccine information with official sources before travelling</li>
+      </ul>
+    </div>
+    <div style="padding:20px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+      <div style="font-size:11px;font-family:'DM Mono',monospace;letter-spacing:1px;color:var(--text-dim);margin-bottom:12px">CONSTRAINTS</div>
+      <ul style="list-style:none;font-size:12px;line-height:2;color:var(--text)">
+        <li>• OpenAI API costs apply — gpt-4o used for advisory and synthesis</li>
+        <li>• Rate limit: 30 requests per minute per IP</li>
+        <li>• Session memory cleared on server restart</li>
+        <li>• Web search freshness limited by OpenAI search index</li>
+        <li>• No SLA on third-party sources (govt advisories, WHO, CDC)</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 3: DESCRIPTION -->
+<div class="section content">
+  <div class="section-title">03 &nbsp; Solution Description</div>
+
+  <p class="description">
+    travelbuddy is a <strong>real multi-agent AI travel assistant</strong> built on LangGraph's supervisor pattern.
+    Unlike a single LLM pretending to handle multiple roles, travelbuddy runs <strong>six genuinely independent
+    LLM instances in parallel</strong> — each with its own identity, tools, system prompt and area of
+    responsibility. Every agent retrieves live data from the internet before reasoning, so responses
+    are always current and source-cited rather than recalled from training memory.
+  </p>
+  <p class="description">
+    The system is built on <strong>RCG (Retrieval-Contextual Grounding)</strong> prompting — agents are
+    reasoners over retrieved context, not knowledge stores. A structured context packet is injected into
+    every agent before tool calls, parallel agent outputs are wrapped in XML tags for clean synthesis,
+    and model strength is matched to task complexity (gpt-4o for safety reasoning and synthesis,
+    gpt-4o-mini for routing and retrieval tasks).
+  </p>
+  <p class="description">
+    The backend is a <strong>FastAPI server</strong> that compiles and runs the LangGraph graph, maintains
+    session memory per conversation, and serves the web UI. Everything runs in Docker with a single
+    <code style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent)">docker compose up</code> command.
+  </p>
+</div>
+
+<!-- SECTION 2: WORKFLOW DIAGRAM -->
+<div class="section content">
+  <div class="section-title">04 &nbsp; High-Level Workflow</div>
+
+  <div class="workflow">
+
+    <!-- USER INPUT -->
+    <div class="layer">
+      <div class="layer-label">Input</div>
+      <div class="layer-content">
+        <div class="node node-gray" style="min-width:200px">
+          <div class="node-title">User message</div>
+          <div class="node-sub">Browser chat UI · POST /api/chat · session_id</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-down">↓</div>
+
+    <!-- CLARIFIER -->
+    <div class="layer">
+      <div class="layer-label">Routing</div>
+      <div class="layer-content" style="display:flex;align-items:center;gap:16px">
+        <div class="node node-teal" style="min-width:240px">
+          <div class="node-title">Clarifier</div>
+          <div class="node-sub">Extracts context · asks if destination/dates missing</div>
+        </div>
+        <div style="font-size:11px;color:var(--text-dim);font-family:'DM Mono',monospace">
+          → if missing info: asks user one question<br>
+          → if sufficient: continues to supervisor
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-down">↓ <span class="arrow-label">sufficient context</span></div>
+
+    <!-- SUPERVISOR -->
+    <div class="layer">
+      <div class="layer-label"></div>
+      <div class="layer-content">
+        <div class="node node-teal" style="min-width:240px">
+          <div class="node-title">Supervisor</div>
+          <div class="node-sub">Routes query to correct specialist agents · gpt-4o-mini</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RCG CONTEXT PACKET -->
+    <div class="rcg-block" style="margin-top:16px">
+      <div class="rcg-block-title">// RCG CONTEXT PACKET — injected into every agent before tool calls</div>
+      destination · travel_dates · trip_duration · traveler_origin · travel_purpose · grounding reminder
+    </div>
+
+    <div class="arrow-down">↓ <span class="arrow-label">all agents dispatched in parallel</span></div>
+
+    <!-- 5 AGENTS -->
+    <div class="agents-row">
+      <div class="agent-node" style="background:rgba(0,255,157,0.06);border-color:rgba(0,255,157,0.25)">
+        <div class="agent-icon">🗺️</div>
+        <div class="agent-name" style="color:var(--accent2)">Planner</div>
+        <div class="agent-tools">build_itinerary<br>search_flights<br>search_hotels</div>
+      </div>
+      <div class="agent-node" style="background:rgba(0,212,255,0.06);border-color:rgba(0,212,255,0.25)">
+        <div class="agent-icon">🌤️</div>
+        <div class="agent-name" style="color:var(--accent)">Weather</div>
+        <div class="agent-tools">get_weather_forecast<br>get_seasonal_info</div>
+      </div>
+      <div class="agent-node" style="background:rgba(255,107,53,0.06);border-color:rgba(255,107,53,0.25)">
+        <div class="agent-icon">🛡️</div>
+        <div class="agent-name" style="color:var(--accent3)">Advisory</div>
+        <div class="agent-tools">get_travel_advisory<br>get_visa_requirements<br>get_vaccine_requirements<br>get_local_laws</div>
+        <div class="agent-badge">gpt-4o</div>
+      </div>
+      <div class="agent-node" style="background:rgba(167,139,250,0.06);border-color:rgba(167,139,250,0.25)">
+        <div class="agent-icon">🎭</div>
+        <div class="agent-name" style="color:var(--purple)">Activities</div>
+        <div class="agent-tools">search_activities<br>search_restaurants</div>
+      </div>
+      <div class="agent-node" style="background:rgba(255,71,87,0.06);border-color:rgba(255,71,87,0.25)">
+        <div class="agent-icon">🚨</div>
+        <div class="agent-name" style="color:var(--warn)">Rescue</div>
+        <div class="agent-tools">get_emergency_contacts<br>get_nearest_hospital</div>
+      </div>
+    </div>
+
+    <!-- WEB SEARCH NOTE -->
+    <div style="margin-left:0;margin-top:10px;padding:10px 14px;background:rgba(255,255,255,0.02);border-radius:6px;border:1px solid var(--border);font-size:11px;font-family:'DM Mono',monospace;color:var(--text-dim)">
+      every tool calls OpenAI with web_search_preview → live internet data · no hardcoded values
+    </div>
+
+    <div class="arrow-down">↓ <span class="arrow-label">results merged via operator.add into shared state</span></div>
+
+    <!-- SYNTHESISER -->
+    <div class="layer">
+      <div class="layer-label">Merge</div>
+      <div class="layer-content">
+        <div class="node node-teal" style="min-width:320px">
+          <div class="node-title">Synthesiser</div>
+          <div class="node-sub">XML-tagged inputs · merges 5 outputs · gpt-4o · grounding rule</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-down">↓</div>
+
+    <!-- FASTAPI + MEMORY -->
+    <div class="layer">
+      <div class="layer-label">Session</div>
+      <div class="layer-content" style="display:flex;align-items:center;gap:16px">
+        <div class="node node-gray" style="min-width:200px">
+          <div class="node-title">FastAPI router</div>
+          <div class="node-sub">POST /api/chat · rate limiting</div>
+        </div>
+        <div class="node node-amber" style="min-width:160px">
+          <div class="node-title">MemorySaver</div>
+          <div class="node-sub">per session_id thread</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-down">↓</div>
+
+    <!-- OUTPUT -->
+    <div class="layer">
+      <div class="layer-label">Output</div>
+      <div class="layer-content">
+        <div class="node node-gray" style="min-width:320px">
+          <div class="node-title">Browser UI</div>
+          <div class="node-sub">agent cards · markdown · weather widget · advisory card · itinerary</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end workflow -->
+</div>
+
+<!-- SECTION 3: AGENTS -->
+<div class="section content">
+  <div class="section-title">05 &nbsp; Agent Responsibilities</div>
+
+  <table class="agent-table">
+    <thead>
+      <tr>
+        <th>Agent</th>
+        <th>Role</th>
+        <th>Tools</th>
+        <th>Model</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="chip chip-blue">🎯 Orchestrator</span></td>
+        <td>Routes all queries, coordinates agents, manages conversation flow</td>
+        <td>—</td>
+        <td><span class="chip chip-amber">gpt-4o-mini</span></td>
+      </tr>
+      <tr>
+        <td><span class="chip chip-green">🗺️ Planner</span></td>
+        <td>Day-by-day itineraries with real named places, flights, hotel recommendations</td>
+        <td><code style="font-size:11px;font-family:'DM Mono',monospace;color:var(--accent2)">build_itinerary · search_flights · search_hotels</code></td>
+        <td><span class="chip chip-amber">gpt-4o-mini</span></td>
+      </tr>
+      <tr>
+        <td><span class="chip chip-blue">🌤️ Weather</span></td>
+        <td>Live forecasts, seasonal patterns, packing recommendations</td>
+        <td><code style="font-size:11px;font-family:'DM Mono',monospace;color:var(--accent)">get_weather_forecast · get_seasonal_info</code></td>
+        <td><span class="chip chip-amber">gpt-4o-mini</span></td>
+      </tr>
+      <tr>
+        <td><span class="chip chip-orange">🛡️ Advisory</span></td>
+        <td>Safety advisories citing US State Dept / UK FCO / DFAT, visa requirements, vaccine mandates from WHO/CDC, local laws. Every claim grounded in retrieved sources with dates.</td>
+        <td><code style="font-size:11px;font-family:'DM Mono',monospace;color:var(--accent3)">get_travel_advisory · get_visa_requirements · get_vaccine_requirements · get_local_laws</code></td>
+        <td><span class="chip chip-red">gpt-4o</span></td>
+      </tr>
+      <tr>
+        <td><span class="chip chip-purple">🎭 Activities</span></td>
+        <td>Specific named attractions, top-rated restaurants, local experiences and hidden gems</td>
+        <td><code style="font-size:11px;font-family:'DM Mono',monospace;color:var(--purple)">search_activities · search_restaurants</code></td>
+        <td><span class="chip chip-amber">gpt-4o-mini</span></td>
+      </tr>
+      <tr>
+        <td><span class="chip chip-red">🚨 Rescue</span></td>
+        <td>Verified emergency contact numbers, hospital locations, embassy contacts</td>
+        <td><code style="font-size:11px;font-family:'DM Mono',monospace;color:var(--warn)">get_emergency_contacts · get_nearest_hospital</code></td>
+        <td><span class="chip chip-amber">gpt-4o-mini</span></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- SECTION 4: RCG -->
+<div class="section content">
+  <div class="section-title">06 &nbsp; RCG Prompting Implementation</div>
+
+  <p class="description">
+    RCG (Retrieval-Contextual Grounding) is implemented across four files, each fulfilling one of the four goals.
+  </p>
+
+  <div class="rcg-grid">
+    <div class="rcg-card">
+      <div class="rcg-card-title">Leverage — Comprehensive Context</div>
+      <div class="rcg-card-file">app/graph/nodes.py → _build_context_packet()</div>
+      <div class="rcg-card-body">
+        Every agent receives a structured brief before calling tools: destination, dates, duration, origin, purpose, and an explicit grounding reminder. Agents are not just given the raw user message — they are given everything extracted from the entire conversation.
+      </div>
+    </div>
+    <div class="rcg-card">
+      <div class="rcg-card-title">Structure Extensive Inputs</div>
+      <div class="rcg-card-file">app/graph/synthesiser.py → _build_xml_section()</div>
+      <div class="rcg-card-body">
+        Five parallel agent outputs are wrapped in <code>&lt;agent_output&gt;</code> XML tags before reaching the synthesiser. Each section contains <code>&lt;retrieved_data&gt;</code>, <code>&lt;agent_reasoning&gt;</code>, and <code>&lt;structured_outputs&gt;</code> — the model navigates them by name, not by position.
+      </div>
+    </div>
+    <div class="rcg-card">
+      <div class="rcg-card-title">Task–Model Alignment</div>
+      <div class="rcg-card-file">app/config.py + app/agents/specialists.py</div>
+      <div class="rcg-card-body">
+        Three model tiers: <code>gpt-4o-mini</code> for routing (clarifier, supervisor), <code>gpt-4o-mini</code> for retrieval agents, <code>gpt-4o</code> for advisory (safety-critical) and synthesiser (complex multi-source merge). AdvisoryAgent overrides the base class constructor.
+      </div>
+    </div>
+    <div class="rcg-card">
+      <div class="rcg-card-title">Comprehensive Context — Specialist Topics</div>
+      <div class="rcg-card-file">app/agents/specialists.py → system prompts</div>
+      <div class="rcg-card-body">
+        Every system prompt explicitly instructs: "You are a REASONER over retrieved data — never answer from training memory." The advisory agent must call all four tools and cite source name + date for every claim. If a tool returns no data, it says so rather than guessing.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 5: CONVERSATION EXAMPLE -->
+<div class="section content">
+  <div class="section-title">07 &nbsp; Example Conversation Flow</div>
+
+  <div class="convo">
+    <div class="convo-msg">
+      <span class="convo-role role-user">User</span>
+      <div class="convo-text">plan a trip to japan</div>
+    </div>
+    <div class="convo-msg">
+      <span class="convo-role role-system">Clarifier</span>
+      <div class="convo-text">When are you travelling and for how many days? <em>← destination known, but both dates and duration missing → planning query requires them</em></div>
+    </div>
+    <div class="convo-msg">
+      <span class="convo-role role-user">User</span>
+      <div class="convo-text">7 days in september</div>
+    </div>
+    <div class="convo-msg">
+      <span class="convo-role role-system">Clarifier</span>
+      <div class="convo-text">Links reply to prior question → travel_dates=September, trip_duration=7 days, destination=Japan → proceed <em>← short answer correctly mapped to context</em></div>
+    </div>
+    <div class="convo-msg">
+      <span class="convo-role role-system">Supervisor</span>
+      <div class="convo-text">Routes to: planner + weather + activities + advisory <em>← all run in parallel</em></div>
+    </div>
+    <div class="convo-msg">
+      <span class="convo-role role-agent">All agents</span>
+      <div class="convo-text">Each receives context packet · calls web search tools · returns specific named places, live advisory data, current forecast <em>← no hardcoded responses</em></div>
+    </div>
+    <div class="convo-msg">
+      <span class="convo-role role-system">Synthesiser</span>
+      <div class="convo-text">Merges 4 agent outputs via XML tags → structured JSON → browser renders agent cards</div>
+    </div>
+    <div class="convo-msg">
+      <span class="convo-role role-user">User</span>
+      <div class="convo-text">change day 3 to focus on food</div>
+    </div>
+    <div class="convo-msg">
+      <span class="convo-role role-agent">Planner + Activities</span>
+      <div class="convo-text">Receive full 8-message conversation history → understand what Day 3 was → update accordingly <em>← full history passed to every agent, not just latest message</em></div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 6: TECH STACK -->
+<div class="section content">
+  <div class="section-title">08 &nbsp; Technology Stack</div>
+
+  <table class="model-table">
+    <thead>
+      <tr><th>Layer</th><th>Technology</th><th>Purpose</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="color:var(--text-bright)">Orchestration</td>
+        <td><span class="chip chip-blue">LangGraph</span></td>
+        <td style="color:var(--text)">StateGraph with supervisor pattern, MemorySaver checkpointing, parallel agent dispatch via conditional edges</td>
+      </tr>
+      <tr>
+        <td style="color:var(--text-bright)">LLM</td>
+        <td><span class="chip chip-green">OpenAI</span></td>
+        <td style="color:var(--text)">gpt-4o for advisory + synthesiser · gpt-4o-mini for routing + retrieval agents</td>
+      </tr>
+      <tr>
+        <td style="color:var(--text-bright)">Web search</td>
+        <td><span class="chip chip-amber">web_search_preview</span></td>
+        <td style="color:var(--text)">Every tool calls OpenAI Responses API with web search — live internet data, no hardcoded values</td>
+      </tr>
+      <tr>
+        <td style="color:var(--text-bright)">API layer</td>
+        <td><span class="chip chip-orange">FastAPI</span></td>
+        <td style="color:var(--text)">Async Python, POST /api/chat, session_id continuity, rate limiting, health probes</td>
+      </tr>
+      <tr>
+        <td style="color:var(--text-bright)">Frontend</td>
+        <td><span class="chip chip-purple">HTML + marked.js</span></td>
+        <td style="color:var(--text)">Single-file UI served by FastAPI — agent cards, markdown rendering, weather widget, advisory cards</td>
+      </tr>
+      <tr>
+        <td style="color:var(--text-bright)">Deployment</td>
+        <td><span class="chip chip-blue">Docker</span></td>
+        <td style="color:var(--text)">Single container, docker compose up, HEALTHCHECK on /api/health</td>
+      </tr>
+      <tr>
+        <td style="color:var(--text-bright)">Memory</td>
+        <td><span class="chip chip-green">MemorySaver</span></td>
+        <td style="color:var(--text)">In-memory session checkpointing keyed by session_id (thread_id) — full conversation history per user</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="footer">
+  <span>travelbuddy v4.0.0 — System Overview</span>
+  <span>LangGraph · FastAPI · OpenAI · Docker</span>
+</div>
+
+</div><!-- end content -->
+</body>
+</html>

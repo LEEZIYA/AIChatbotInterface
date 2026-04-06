@@ -20,7 +20,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from app.config import settings
 from app.graph.state import TravelState, AgentResponse
 
-logger = logging.getLogger("voyager.synthesiser")
+logger = logging.getLogger("travelbuddy.synthesiser")
 
 
 def _agent_role(name: str) -> str:
@@ -35,7 +35,7 @@ def _agent_role(name: str) -> str:
     return roles.get(name, "General travel assistance")
 
 
-SYNTHESISER_SYSTEM = """You are the Response Synthesiser for VOYAGER, an AI travel intelligence system.
+SYNTHESISER_SYSTEM = """You are the Response Synthesiser for travelbuddy, an AI travel intelligence system.
 
 You receive structured outputs from specialist agents wrapped in <agent_output> XML tags.
 Each tag contains:
@@ -79,7 +79,7 @@ Return ONLY valid JSON in exactly this structure:
       "local_rules": [...] | null,
       "sources":     [...]
     },
-    "rescue": { "active": true, "response": "plain text", "emergency_numbers": [...] | null }
+    "rescue": { "active": true, "response": "plain text", "emergency_numbers": [...] | null, "disruption_solutions": [...] | null }
   }
 }
 
@@ -104,6 +104,10 @@ def _extract(ar: AgentResponse) -> Dict[str, Any]:
             out.setdefault("advisory_data", {}).update(val)
         if name == "rescue"     and "emergency_numbers" in val:
             out["emergency_numbers"] = val["emergency_numbers"]
+        if name == "rescue"     and "solutions"          in val:
+            out["disruption_solutions"] = val["solutions"]
+        if name == "rescue"     and "success"            in val:
+            out.setdefault("disruption_data", {}).update(val)
 
     return out
 
@@ -116,7 +120,7 @@ def _build_xml_section(ar: AgentResponse) -> str:
     ex = _extract(ar)
 
     structured = {}
-    for k in ["forecast","itinerary","highlights","emergency_numbers","advisory_data"]:
+    for k in ["forecast","itinerary","highlights","emergency_numbers","advisory_data","disruption_solutions","disruption_data"]:
         if ex.get(k):
             structured[k] = ex[k]
 
@@ -211,7 +215,8 @@ def _sanitise(final: Dict, responses: List[AgentResponse], destination: Optional
         if not ar["advisory"].get("risk_level"):
             ar["advisory"]["risk_level"] = "LOW"
     if ar["rescue"].get("active"):
-        ar["rescue"]["emergency_numbers"] = _ensure_list(ar["rescue"].get("emergency_numbers"))
+        ar["rescue"]["emergency_numbers"]   = _ensure_list(ar["rescue"].get("emergency_numbers"))
+        ar["rescue"]["disruption_solutions"] = _ensure_list(ar["rescue"].get("disruption_solutions"))
 
     final["agent_responses"] = ar
     if not final.get("destination"):
@@ -221,7 +226,7 @@ def _sanitise(final: Dict, responses: List[AgentResponse], destination: Optional
 
 def _empty() -> Dict:
     return {
-        "orchestrator_message": "Hello! I am VOYAGER, your AI travel assistant. Ask me anything about your trip.",
+        "orchestrator_message": "Hello! I am travelbuddy, your AI travel assistant. Ask me anything about your trip.",
         "destination": None, "agents_involved": ["orchestrator"],
         "agent_responses": {
             "planner":    {"active": False, "response": "", "itinerary": None},
@@ -230,7 +235,7 @@ def _empty() -> Dict:
             "advisory":   {"active": False, "response": "", "risk_level": "LOW",
                            "hazards": None, "visa": None, "vaccines": None,
                            "local_rules": None, "sources": []},
-            "rescue":     {"active": False, "response": "", "emergency_numbers": None},
+            "rescue":     {"active": False, "response": "", "emergency_numbers": None, "disruption_solutions": None},
         }
     }
 

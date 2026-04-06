@@ -11,7 +11,7 @@ import logging, time, uuid
 from app.graph.builder import get_graph
 from app.config import settings
 
-logger = logging.getLogger("voyager.chat")
+logger = logging.getLogger("travelbuddy.chat")
 router = APIRouter(tags=["chat"])
 _rate_store: Dict[str, List[float]] = {}
 

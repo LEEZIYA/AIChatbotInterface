@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VOYAGER — AI Travel Intelligence</title>
+<title>travelbuddy — AI Travel Intelligence</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
 <style>
@@ -157,6 +157,69 @@
   .trip-meta-label { color:var(--text-dim); font-family:'DM Mono',monospace; font-size:10px; }
   .trip-meta-val { color:var(--text-bright); font-weight:500; }
 
+  /* ── TRIP HISTORY STYLES ─────────────────────────────────────────────── */
+  .trip-list { display:flex; flex-direction:column; gap:0; }
+  .trip-card {
+    border-bottom:1px solid var(--border); cursor:pointer;
+    transition:background 0.15s; position:relative;
+  }
+  .trip-card:hover { background:rgba(255,255,255,0.03); }
+  .trip-card.active { background:rgba(0,212,255,0.06); border-left:3px solid var(--accent); }
+  .trip-card-header {
+    padding:12px 14px; display:flex; align-items:center; gap:10px;
+  }
+  .trip-card-flag {
+    width:32px; height:32px; border-radius:6px; flex-shrink:0;
+    background:rgba(0,212,255,0.1); border:1px solid rgba(0,212,255,0.2);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Bebas Neue',sans-serif; font-size:11px; color:var(--accent);
+    letter-spacing:1px;
+  }
+  .trip-card-info { flex:1; min-width:0; }
+  .trip-card-name {
+    font-size:13px; font-weight:500; color:var(--text-bright);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .trip-card-meta { font-size:10px; color:var(--text-dim); font-family:'DM Mono',monospace; margin-top:2px; }
+  .trip-card-delete {
+    width:22px; height:22px; border-radius:4px; border:none;
+    background:transparent; color:var(--text-dim); cursor:pointer;
+    font-size:12px; display:flex; align-items:center; justify-content:center;
+    opacity:0; transition:opacity 0.15s;
+  }
+  .trip-card:hover .trip-card-delete { opacity:1; }
+  .trip-card-delete:hover { background:rgba(255,71,87,0.15); color:var(--warn); }
+  .trip-detail { padding:0; }
+  .trip-detail-header {
+    padding:14px 16px 10px; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; gap:10px;
+  }
+  .trip-back-btn {
+    background:transparent; border:1px solid var(--border); border-radius:6px;
+    color:var(--text-dim); font-size:11px; padding:4px 10px; cursor:pointer;
+    font-family:'DM Mono',monospace; transition:all 0.15s;
+  }
+  .trip-back-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .trip-detail-body { padding:14px; overflow-y:auto; }
+  .trip-section-label {
+    font-size:10px; font-family:'DM Mono',monospace; letter-spacing:1.5px;
+    color:var(--text-dim); margin:14px 0 7px; text-transform:uppercase;
+  }
+  .trip-empty {
+    text-align:center; padding:40px 20px; color:var(--text-dim);
+  }
+  .trip-empty-icon { font-size:32px; margin-bottom:12px; }
+  .trip-empty-title { font-family:'DM Mono',monospace; font-size:11px; letter-spacing:1px; margin-bottom:8px; }
+  .trip-empty-sub { font-size:12px; }
+  .trip-add-btn {
+    display:flex; align-items:center; gap:6px; padding:8px 14px;
+    background:rgba(0,212,255,0.06); border:1px dashed rgba(0,212,255,0.3);
+    border-radius:8px; cursor:pointer; font-size:11px; color:var(--accent);
+    font-family:'DM Mono',monospace; margin:12px 0; transition:all 0.15s;
+    width:100%;
+  }
+  .trip-add-btn:hover { background:rgba(0,212,255,0.12); }
+  /* ─────────────────────────────────────────────────────────────────────── */
   .agent-routing { display:flex; align-items:center; gap:8px; padding:6px 12px; background:rgba(0,212,255,0.06); border:1px solid rgba(0,212,255,0.15); border-radius:6px; font-size:10px; font-family:'DM Mono',monospace; color:var(--text-dim); margin-bottom:4px; }
   .routing-arrow { color:var(--accent); }
   .tag-orchestrator{background:rgba(0,212,255,0.15);color:#00d4ff}
@@ -171,7 +234,7 @@
 <body>
 
 <header>
-  <div class="logo">VOYAGER<span>AI TRAVEL INTELLIGENCE</span></div>
+  <div class="logo">travelbuddy<span>AI TRAVEL INTELLIGENCE</span></div>
   <div style="display:flex;align-items:center;gap:20px">
     <div class="status-pill"><div class="status-dot"></div>6 AGENTS ONLINE</div>
     <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text-dim)">v3.0.0</div>
@@ -215,7 +278,7 @@
     <div class="info-tabs">
       <div class="info-tab active" onclick="switchTab('overview',this)">OVERVIEW</div>
       <div class="info-tab" onclick="switchTab('pipeline',this)">PIPELINE</div>
-      <div class="info-tab" onclick="switchTab('trip',this)">TRIP</div>
+      <div class="info-tab" onclick="switchTab('trip',this)" id="tripTabBtn">TRIP</div>
     </div>
     <div class="info-content" id="infoContent"></div>
   </div>
@@ -237,6 +300,21 @@ function renderMarkdown(text) {
 
 const BACKEND_API = "/api/chat";
 let sessionId = null;
+// Trip history — persists across conversation turns
+// Each entry: { id, destination, savedAt, dates, duration, origin,
+//               forecast, itinerary, highlights, riskLevel, visaRequirement,
+//               advisoryText, activitiesText, plannerText, weatherText }
+let tripHistory = [];
+let activeTripId = null;  // which trip is currently being viewed in detail
+let tripViewMode = 'list'; // 'list' or 'detail'
+
+// Current in-progress trip data (accumulates until saved or destination changes)
+let tripData = {
+  destination: null, dates: null, duration: null, origin: null,
+  forecast: null, itinerary: null, highlights: null,
+  riskLevel: null, visaRequirement: null,
+  advisoryText: null, activitiesText: null, plannerText: null, weatherText: null,
+};
 let conversationHistory = [];
 let currentDestination = '';
 let pipelineSteps = [];
@@ -332,12 +410,73 @@ function removeTyping() {
 
 function buildWeatherWidget(forecast) {
   if (!forecast || !Array.isArray(forecast) || forecast.length === 0) return '';
-  return `<div class="weather-widget">${forecast.map(f=>`
+
+  // Map plain text icon codes to SVG shapes — no emoji, no unicode issues
+  function weatherIcon(code) {
+    const c = (code || '').toLowerCase().trim();
+    if (c.includes('sun') || c.includes('clear')) {
+      return `<svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+        <circle cx="14" cy="14" r="6" fill="#ffd166"/>
+        <line x1="14" y1="2" x2="14" y2="5" stroke="#ffd166" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="14" y1="23" x2="14" y2="26" stroke="#ffd166" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="2" y1="14" x2="5" y2="14" stroke="#ffd166" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="23" y1="14" x2="26" y2="14" stroke="#ffd166" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="5.5" y1="5.5" x2="7.6" y2="7.6" stroke="#ffd166" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="20.4" y1="20.4" x2="22.5" y2="22.5" stroke="#ffd166" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="22.5" y1="5.5" x2="20.4" y2="7.6" stroke="#ffd166" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="7.6" y1="20.4" x2="5.5" y2="22.5" stroke="#ffd166" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>`;
+    }
+    if (c.includes('rain') || c.includes('shower') || c.includes('drizzle')) {
+      return `<svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+        <path d="M6 16a6 6 0 1 1 11.5-2.5A4 4 0 1 1 20 20H7a5 5 0 0 1-1-4z" fill="#5a7a99" opacity="0.7"/>
+        <line x1="10" y1="22" x2="9" y2="26" stroke="#00d4ff" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="14" y1="22" x2="13" y2="26" stroke="#00d4ff" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="18" y1="22" x2="17" y2="26" stroke="#00d4ff" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>`;
+    }
+    if (c.includes('storm') || c.includes('thunder') || c.includes('lightning')) {
+      return `<svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+        <path d="M6 15a6 6 0 1 1 11.5-2.5A4 4 0 1 1 20 19H7z" fill="#5a7a99" opacity="0.7"/>
+        <path d="M13 19l-3 5h4l-2 4 6-7h-4l2-2z" fill="#ffd166"/>
+      </svg>`;
+    }
+    if (c.includes('snow') || c.includes('blizzard') || c.includes('flurr')) {
+      return `<svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+        <path d="M6 15a6 6 0 1 1 11.5-2.5A4 4 0 1 1 20 19H7z" fill="#a0b4c8" opacity="0.6"/>
+        <circle cx="10" cy="23" r="1.5" fill="#c8dff0"/>
+        <circle cx="14" cy="25" r="1.5" fill="#c8dff0"/>
+        <circle cx="18" cy="23" r="1.5" fill="#c8dff0"/>
+      </svg>`;
+    }
+    if (c.includes('overcast') || c.includes('fog') || c.includes('mist')) {
+      return `<svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+        <path d="M4 14a7 7 0 1 1 13.5-2.5A5 5 0 1 1 23 18H5a5 5 0 0 1-1-4z" fill="#5a7a99" opacity="0.5"/>
+        <line x1="8" y1="22" x2="20" y2="22" stroke="#5a7a99" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="10" y1="25" x2="18" y2="25" stroke="#5a7a99" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+      </svg>`;
+    }
+    // cloudy / partly cloudy (default)
+    return `<svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+      <circle cx="12" cy="13" r="5" fill="#ffd166" opacity="0.8"/>
+      <path d="M8 17a5 5 0 1 1 9.5-2A3.5 3.5 0 1 1 20 21H9a4 4 0 0 1-1-4z" fill="#5a7a99" opacity="0.75"/>
+    </svg>`;
+  }
+
+  // Strip degree symbols that may come back garbled, normalise temp display
+  function cleanTemp(t) {
+    if (!t) return '';
+    return t.toString().replace(/[^\d°C]/g, s => /[\d°C]/.test(s) ? s : '').replace(/(\d+)C$/, '$1°C') || t;
+  }
+
+  return `<div class="weather-widget">${forecast.map(f => `
     <div class="weather-cell">
-      <div class="weather-day">${f.day||''}</div>
-      <div class="weather-icon">${f.icon||'🌤'}</div>
-      <div class="weather-temp">${f.temp||''}</div>
-      <div class="weather-desc">${f.desc||''}</div>
+      <div class="weather-day">${f.day || ''}</div>
+      <div class="weather-icon" style="display:flex;justify-content:center;align-items:center;height:36px;margin:4px 0">
+        ${weatherIcon(f.icon)}
+      </div>
+      <div class="weather-temp">${cleanTemp(f.temp)}</div>
+      <div class="weather-desc">${f.desc || ''}</div>
     </div>`).join('')}</div>`;
 }
 
@@ -433,6 +572,39 @@ function buildEmergencyWidget(numbers) {
       </div>`).join('')}</div>`;
 }
 
+function buildDisruptionSolutions(solutions) {
+  if (!solutions || !Array.isArray(solutions) || solutions.length === 0) return '';
+  const strategyIcon = {
+    'REBOOKING': '✈️', 'ACCEPT_DELAY': '⏳',
+    'ALTERNATIVE_ROUTE': '🔀', 'MANUAL_ESCALATION': '🤝'
+  };
+  const strategyColor = {
+    'REBOOKING': 'var(--accent2)', 'ACCEPT_DELAY': 'var(--accent4)',
+    'ALTERNATIVE_ROUTE': 'var(--accent)', 'MANUAL_ESCALATION': 'var(--accent3)'
+  };
+  return `<div style="margin-top:10px">
+    <div style="font-size:10px;font-family:'DM Mono',monospace;letter-spacing:1px;color:var(--warn);margin-bottom:8px">RANKED SOLUTIONS</div>
+    ${solutions.map((s, i) => `
+      <div style="padding:12px 14px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;border-left:3px solid ${strategyColor[s.strategy]||'var(--accent)'}">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:12px;font-weight:600;color:${strategyColor[s.strategy]||'var(--accent)'}">
+            ${strategyIcon[s.strategy]||'💡'} ${(s.strategy||'').replace(/_/g,' ')}
+          </span>
+          <span style="font-size:10px;font-family:'DM Mono',monospace;color:var(--accent2)">
+            ${Math.round((s.confidence||0)*100)}% confident
+          </span>
+        </div>
+        <div style="font-size:12px;color:var(--text);margin-bottom:6px">${s.description||''}</div>
+        <div style="display:flex;gap:12px;font-size:10px;font-family:'DM Mono',monospace">
+          <span style="color:${(s.cost_impact||0)<=0?'var(--accent2)':'var(--warn)'}">
+            cost: ${(s.cost_impact||0)>0?'+':''}${s.cost_impact||0} SGD
+          </span>
+          <span style="color:var(--accent4)">time: +${s.time_impact||0} min</span>
+        </div>
+      </div>`).join('')}
+  </div>`;
+}
+
 function buildHighlightsList(highlights) {
   if (!highlights || !Array.isArray(highlights) || highlights.length === 0) return '';
   return `<ul style="margin-top:8px;padding-left:16px;font-size:12px;color:var(--text-dim)">
@@ -482,13 +654,237 @@ function renderOverview() {
       </div>`).join('')}`;
 }
 
+// ── TRIP HISTORY SYSTEM ───────────────────────────────────────────────────────
+
+function getDestAbbr(dest) {
+  if (!dest) return '??';
+  const words = dest.split(/[,\s]+/).filter(Boolean);
+  return words.length === 1
+    ? dest.substring(0, 3).toUpperCase()
+    : (words[0][0] + (words[1]?.[0] || words[0][1])).toUpperCase();
+}
+
+function saveOrUpdateTrip() {
+  if (!tripData.destination && !currentDestination) return;
+  const dest = tripData.destination || currentDestination;
+
+  // Check if trip for this destination already exists — update it
+  const existing = tripHistory.find(t =>
+    t.destination.toLowerCase() === dest.toLowerCase()
+  );
+
+  const tripEntry = {
+    id: existing ? existing.id : 'trip_' + Date.now(),
+    destination: dest,
+    savedAt: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
+    ...tripData,
+    destination: dest,
+  };
+
+  if (existing) {
+    const idx = tripHistory.indexOf(existing);
+    // Merge — only update fields that have new data
+    tripHistory[idx] = {
+      ...existing,
+      ...Object.fromEntries(Object.entries(tripEntry).filter(([,v]) => v != null)),
+      savedAt: tripEntry.savedAt,
+    };
+  } else {
+    tripHistory.unshift(tripEntry); // newest first
+  }
+
+  updateTripTabBadge();
+  if (activeTab === 'trip') renderTripTab();
+}
+
+function renderTripTab() {
+  if (tripViewMode === 'detail' && activeTripId) {
+    renderTripDetail(activeTripId);
+  } else {
+    renderTripList();
+  }
+}
+
+function renderTripList() {
+  const el = document.getElementById('infoContent');
+
+  if (tripHistory.length === 0) {
+    el.innerHTML = `
+      <div class="trip-empty">
+        <div class="trip-empty-icon">🗺️</div>
+        <div class="trip-empty-title">NO TRIPS SAVED YET</div>
+        <div class="trip-empty-sub">Plan a trip and your itinerary,<br>weather and safety info saves here.</div>
+      </div>`;
+    return;
+  }
+
+  let html = `
+    <div style="padding:12px 14px 8px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:10px;font-family:'DM Mono',monospace;color:var(--text-dim);letter-spacing:1.5px">
+        ${tripHistory.length} TRIP${tripHistory.length > 1 ? 'S' : ''} SAVED
+      </div>
+    </div>
+    <div class="trip-list">`;
+
+  tripHistory.forEach(trip => {
+    const abbr = getDestAbbr(trip.destination);
+    const hasPlan  = trip.itinerary && trip.itinerary.length > 0;
+    const hasWx    = trip.forecast  && trip.forecast.length  > 0;
+    const hasAdv   = !!trip.riskLevel;
+    const hasActs  = trip.highlights && trip.highlights.length > 0;
+    const tags = [
+      hasPlan ? 'Plan'     : null,
+      hasWx   ? 'Weather'  : null,
+      hasAdv  ? 'Advisory' : null,
+      hasActs ? 'Activities': null,
+    ].filter(Boolean).join(' · ');
+
+    const metaParts = [];
+    if (trip.duration) metaParts.push(trip.duration);
+    if (trip.dates)    metaParts.push(trip.dates);
+    const meta = metaParts.length ? metaParts.join(' · ') : tags || 'General query';
+
+    html += `
+      <div class="trip-card" onclick="openTripDetail('${trip.id}')">
+        <div class="trip-card-header">
+          <div class="trip-card-flag">${abbr}</div>
+          <div class="trip-card-info">
+            <div class="trip-card-name">${trip.destination}</div>
+            <div class="trip-card-meta">${meta}</div>
+          </div>
+          <button class="trip-card-delete" onclick="deleteTrip(event,'${trip.id}')" title="Remove">✕</button>
+        </div>
+        ${tags ? `<div style="padding:0 14px 10px;display:flex;gap:5px;flex-wrap:wrap">
+          ${[hasPlan?'Plan':null, hasWx?'Weather':null, hasAdv?'Safety':null, hasActs?'Activities':null]
+            .filter(Boolean).map(t => `<span style="font-size:9px;padding:2px 7px;border-radius:10px;
+              background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);
+              color:var(--accent);font-family:'DM Mono',monospace">${t}</span>`).join('')}
+        </div>` : ''}
+      </div>`;
+  });
+
+  html += `</div>`;
+  el.innerHTML = html;
+}
+
+function openTripDetail(id) {
+  activeTripId = id;
+  tripViewMode = 'detail';
+  renderTripDetail(id);
+}
+
+function renderTripDetail(id) {
+  const trip = tripHistory.find(t => t.id === id);
+  if (!trip) { tripViewMode = 'list'; renderTripList(); return; }
+
+  const el = document.getElementById('infoContent');
+  const rc = {LOW:'risk-low',MEDIUM:'risk-med',HIGH:'risk-high',CRITICAL:'risk-critical'}[trip.riskLevel] || 'risk-low';
+  const re = {LOW:'🟢',MEDIUM:'🟡',HIGH:'🟠',CRITICAL:'🔴'}[trip.riskLevel] || '';
+
+  let html = `
+    <div class="trip-detail">
+      <div class="trip-detail-header">
+        <button class="trip-back-btn" onclick="backToTripList()">← All trips</button>
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:500;color:var(--text-bright)">${trip.destination}</div>
+          <div style="font-size:10px;color:var(--text-dim);font-family:'DM Mono',monospace;margin-top:2px">
+            Saved at ${trip.savedAt}
+          </div>
+        </div>
+      </div>
+      <div class="trip-detail-body">`;
+
+  // Meta chips
+  const chips = [];
+  if (trip.duration) chips.push({label:'Duration', val:trip.duration});
+  if (trip.dates)    chips.push({label:'Dates',    val:trip.dates});
+  if (trip.origin)   chips.push({label:'From',     val:trip.origin});
+  if (chips.length) {
+    html += `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      ${chips.map(c=>`<div style="padding:6px 12px;background:var(--surface);border:1px solid var(--border);
+        border-radius:6px">
+        <div style="font-size:9px;color:var(--text-dim);font-family:'DM Mono',monospace">${c.label}</div>
+        <div style="font-size:12px;color:var(--text-bright);font-weight:500;margin-top:2px">${c.val}</div>
+      </div>`).join('')}
+    </div>`;
+  }
+
+  // Safety
+  if (trip.riskLevel) {
+    html += `<div class="trip-section-label">// Safety & Advisory</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span class="risk-badge ${rc}">${re} ${trip.riskLevel} RISK</span>
+        ${trip.visaRequirement ? `<span style="font-size:11px;color:var(--text)">
+          Visa: <span style="color:var(--text-bright)">${trip.visaRequirement}</span></span>` : ''}
+      </div>
+      ${trip.advisoryText ? `<div style="font-size:12px;color:var(--text-dim);line-height:1.7;margin-bottom:8px">${trip.advisoryText}</div>` : ''}`;
+  }
+
+  // Weather
+  if (trip.forecast && trip.forecast.length > 0) {
+    html += `<div class="trip-section-label">// Weather</div>`;
+    html += buildWeatherWidget(trip.forecast);
+    if (trip.weatherText) {
+      html += `<div style="font-size:12px;color:var(--text-dim);line-height:1.7;margin-top:8px">${trip.weatherText}</div>`;
+    }
+  }
+
+  // Activities
+  if (trip.highlights && trip.highlights.length > 0) {
+    html += `<div class="trip-section-label">// Top Activities</div>
+      <ul style="padding-left:16px;font-size:12px;color:var(--text);line-height:2;margin-bottom:8px">
+        ${trip.highlights.map(h=>`<li>${typeof h==='object'?(h.name||JSON.stringify(h)):h}</li>`).join('')}
+      </ul>`;
+  }
+
+  // Itinerary
+  if (trip.itinerary && trip.itinerary.length > 0) {
+    html += `<div class="trip-section-label">// Day-by-day Itinerary</div>`;
+    html += buildItinerary(trip.itinerary);
+  }
+
+  if (!trip.riskLevel && !trip.forecast && !trip.highlights && !trip.itinerary) {
+    html += `<div style="font-size:12px;color:var(--text-dim);padding:12px 0">
+      Keep chatting about ${trip.destination} — more details will appear here automatically.
+    </div>`;
+  }
+
+  html += `</div></div>`;
+  el.innerHTML = html;
+
+  // Scroll detail body to top
+  el.scrollTop = 0;
+}
+
+function backToTripList() {
+  activeTripId = null;
+  tripViewMode = 'list';
+  renderTripList();
+}
+
+function deleteTrip(event, id) {
+  event.stopPropagation();
+  tripHistory = tripHistory.filter(t => t.id !== id);
+  if (activeTripId === id) {
+    activeTripId = null;
+    tripViewMode = 'list';
+  }
+  renderTripTab();
+}
+
+function updateTripTabBadge() {
+  const btn = document.getElementById('tripTabBtn');
+  if (!btn) return;
+  btn.textContent = tripHistory.length > 0 ? `TRIPS (${tripHistory.length})` : 'TRIP';
+}
+
 function switchTab(tab, el) {
   activeTab = tab;
   document.querySelectorAll('.info-tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
   if (tab==='overview') renderOverview();
   else if (tab==='pipeline') renderPipeline();
-  else document.getElementById('infoContent').innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text-dim);font-size:12px"><div style="font-size:30px;margin-bottom:12px">🗺️</div><div style="font-family:'DM Mono',monospace">TRIP DATA BUILDS AS YOU CHAT</div></div>`;
+  else if (tab==='trip') renderTripTab();
 }
 
 // ── MAIN SEND ─────────────────────────────────────────────────────────────────
@@ -587,10 +983,11 @@ async function sendMessage() {
       addMessage('advisory', ar.advisory.response, false, widgetHTML);
     }
 
-    // Rescue — text rendered as markdown, emergency numbers as raw HTML
+    // Rescue — text rendered as markdown, emergency numbers + disruption solutions as raw HTML
     if (ar.rescue?.active && ar.rescue?.response) {
-      const widgetHTML = buildEmergencyWidget(ar.rescue.emergency_numbers);
-      addMessage('rescue', ar.rescue.response, false, widgetHTML);
+      const emergencyHTML = buildEmergencyWidget(ar.rescue.emergency_numbers);
+      const disruptionHTML = buildDisruptionSolutions(ar.rescue.disruption_solutions);
+      addMessage('rescue', ar.rescue.response, false, disruptionHTML + emergencyHTML);
     }
 
     const assistantSummary = parsed.orchestrator_message || '';
@@ -598,13 +995,54 @@ async function sendMessage() {
       conversationHistory.push({role:'assistant', content:assistantSummary});
     }
 
+    // ── Accumulate trip data and save to trip history ───────────────────────
+    const newDest = parsed.destination || currentDestination;
+
+    // If destination changed, start fresh tripData for new trip
+    if (newDest && tripData.destination && newDest.toLowerCase() !== tripData.destination.toLowerCase()) {
+      tripData = { destination: null, dates: null, duration: null, origin: null,
+                   forecast: null, itinerary: null, highlights: null,
+                   riskLevel: null, visaRequirement: null,
+                   advisoryText: null, activitiesText: null, plannerText: null, weatherText: null };
+    }
+    tripData.destination = newDest || tripData.destination;
+
+    if (ar.weather?.active) {
+      if (Array.isArray(ar.weather.forecast) && ar.weather.forecast.length > 0)
+        tripData.forecast = ar.weather.forecast;
+      if (ar.weather.response) tripData.weatherText = ar.weather.response;
+    }
+    if (ar.planner?.active) {
+      if (Array.isArray(ar.planner.itinerary) && ar.planner.itinerary.length > 0)
+        tripData.itinerary = ar.planner.itinerary;
+      if (ar.planner.response) tripData.plannerText = ar.planner.response;
+    }
+    if (ar.activities?.active) {
+      if (Array.isArray(ar.activities.highlights) && ar.activities.highlights.length > 0)
+        tripData.highlights = ar.activities.highlights;
+      if (ar.activities.response) tripData.activitiesText = ar.activities.response;
+    }
+    if (ar.advisory?.active) {
+      if (ar.advisory.risk_level)        tripData.riskLevel       = ar.advisory.risk_level;
+      if (ar.advisory.visa?.requirement) tripData.visaRequirement = ar.advisory.visa.requirement;
+      if (ar.advisory.response)          tripData.advisoryText    = ar.advisory.response;
+    }
+    if (parsed.travel_dates)    tripData.dates    = parsed.travel_dates;
+    if (parsed.trip_duration)   tripData.duration = parsed.trip_duration;
+    if (parsed.traveler_origin) tripData.origin   = parsed.traveler_origin;
+
+    // Save/update in trip history whenever we have meaningful data
+    const hasData = tripData.itinerary || tripData.forecast || tripData.riskLevel || tripData.highlights;
+    if (hasData && tripData.destination) saveOrUpdateTrip();
+
     if (activeTab==='overview') renderOverview();
+    if (activeTab==='trip')     renderTripTab();
 
   } catch (err) {
     removeTyping();
     AGENTS.forEach(a => setAgentStatus(a.id, 'idle'));
     setAgentStatus('orchestrator', 'active');
-    console.error('VOYAGER error:', err);
+    console.error('travelbuddy error:', err);
     addMessage('orchestrator', `Something went wrong: ${err.message}. Please try again.`);
   }
 }
@@ -618,6 +1056,11 @@ function handleKey(e) {
 function clearChat() {
   document.getElementById('chatMessages').innerHTML = '';
   conversationHistory = []; currentDestination = ''; pipelineSteps = []; sessionId = null;
+  tripData = { destination: null, dates: null, duration: null, origin: null,
+               forecast: null, itinerary: null, highlights: null,
+               riskLevel: null, visaRequirement: null,
+               advisoryText: null, activitiesText: null, plannerText: null, weatherText: null };
+  // NOTE: tripHistory is intentionally preserved across clear — trips stay saved
   document.getElementById('destLabel').textContent = 'No destination set';
   AGENTS.forEach(a => { a.status='idle'; setAgentStatus(a.id,'idle'); });
   setAgentStatus('orchestrator','active');
@@ -629,7 +1072,7 @@ function addWelcomeMessage() {
   const div = document.createElement('div');
   div.style.cssText = 'text-align:center;padding:30px 20px;';
   div.innerHTML = `
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:4px;color:var(--accent);text-shadow:0 0 20px rgba(0,212,255,0.3)">VOYAGER</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:4px;color:var(--accent);text-shadow:0 0 20px rgba(0,212,255,0.3)">travelbuddy</div>
     <div style="font-size:12px;color:var(--text-dim);font-family:'DM Mono',monospace;letter-spacing:2px;margin-top:4px;margin-bottom:20px">AI TRAVEL INTELLIGENCE v3</div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;max-width:480px;margin:0 auto 20px">
       ${AGENTS.filter(a=>a.id!=='orchestrator').map(a=>`

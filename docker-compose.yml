@@ -1,14 +1,34 @@
-version: "3.9"
+  # ── LOCAL DEVELOPMENT ─────────────────────────────────────────────────────────
+# Run everything locally:
+#   docker compose up --build -d
+#
+# ── MICROSERVICES ─────────────────────────────────────────────────────────────
+# The rescue-agent-api service requires the rescue_agent_mcp folder.
+# To use it:
+#   git clone https://github.com/LEEZIYA/AIChatbotInterface.git temp
+#   cp -r temp/rescue_agent_mcp ./rescue_agent_mcp
+#   rm -rf temp
+# Then uncomment the rescue-agent-api service below.
+#
+# Without the rescue_agent_mcp folder, travelbuddy still works — rescue tools
+# automatically fall back to web search.
 
 services:
-  voyager:
-    build: .
-    image: voyager:v4
-    container_name: voyager_app
+
+  # ── travelbuddy main application ─────────────────────────────────────────────
+  travelbuddy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: travelbuddy:local
+    container_name: travelbuddy_app
     ports:
       - "8000:8000"
     env_file:
       - .env
+    environment:
+      # Override rescue agent URL to use Docker service name
+      - RESCUE_AGENT_URL=http://rescue-agent-api:8000
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
@@ -16,3 +36,29 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
+    # Uncomment if rescue-agent-api is running:
+    # depends_on:
+    #   rescue-agent-api:
+    #     condition: service_healthy
+
+  # ── RESCUE AGENT microservice (MCP-powered) ───────────────────────────────
+  # Uncomment this block after cloning rescue_agent_mcp folder (see above).
+  #
+  # rescue-agent-api:
+  #   build:
+  #     context: ./rescue_agent_mcp
+  #     dockerfile: Dockerfile
+  #   container_name: rescue_agent_app
+  #   ports:
+  #     - "8001:8000"
+  #   environment:
+  #     - OPENAI_API_KEY=${OPENAI_API_KEY}
+  #     - USE_MCP=true
+  #     - USE_MOCK_APIS=true
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 15s

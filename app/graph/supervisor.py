@@ -15,9 +15,9 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from app.config import settings
 from app.graph.state import TravelState
 
-logger = logging.getLogger("voyager.supervisor")
+logger = logging.getLogger("travelbuddy.supervisor")
 
-SUPERVISOR_SYSTEM = """You are the Supervisor of VOYAGER, an AI travel intelligence system.
+SUPERVISOR_SYSTEM = """You are the Supervisor of travelbuddy, an AI travel intelligence system.
 You coordinate 5 specialist agents:
   - planner    : flights, hotels, day-by-day itineraries, routes
   - weather    : forecasts, seasonal patterns, packing advice
@@ -61,15 +61,16 @@ async def supervisor_node(state: TravelState) -> Dict[str, Any]:
         if state.get(k):
             context_parts.append(f"{label}: {state[k]}")
 
-    latest = ""
-    for msg in reversed(state["messages"]):
-        if msg.get("role") == "user":
-            latest = msg.get("content", "")
-            break
+    # Also pass last 3 messages so supervisor sees full phrasing like "3 day trip to bali"
+    recent_msgs = state["messages"][-3:] if state.get("messages") else []
+    recent_text = " | ".join(f"{m['role'].upper()}: {m['content']}" for m in recent_msgs)
 
     response = await llm.ainvoke([
         SystemMessage(content=SUPERVISOR_SYSTEM),
-        HumanMessage(content=f"Context: {' | '.join(context_parts)}\nUser: {latest}"),
+        HumanMessage(content=(
+            f"Extracted context: {' | '.join(context_parts) or 'none yet'}\n"
+            f"Recent messages: {recent_text}"
+        )),
     ])
 
     raw = response.content if isinstance(response.content, str) else ""

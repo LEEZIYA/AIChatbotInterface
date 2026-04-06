@@ -1,4 +1,4 @@
-# ✈️ VOYAGER v4 — RCG Multi-Agent Travel Intelligence
+# ✈️ travelbuddy v4 — RCG Multi-Agent Travel Intelligence
 
 A production-grade multi-agent AI travel assistant built with LangGraph, FastAPI and OpenAI.
 Uses RCG (Retrieval-Contextual Grounding) prompting — every agent retrieves live data from
@@ -28,54 +28,29 @@ pip install -r requirements.txt
 # 4. Run
 uvicorn app.main:app --reload --port 8000
 ```
+## commit steps
+# 1. Push to GitHub
+git add .
+git commit -m "Message Here"
+git push origin main
 
-Open your browser → **http://localhost:8000**
+## docker steps
+# This stops AND removes the container cleanly
+docker compose down
 
----
-
-## Docker steps
-
----
-
-# 1. Extract the zip, enter the folder
-cd voyager-v4
-
-# 2. Create your .env file
-copy .env.example .env
-# Edit .env → set OPENAI_API_KEY=sk-...
-
-# 3. Build the image
-docker build -t voyager:v4 .
-
-# 4. Run (choose one)
-
-# Option A — simple command
-docker run -d --name voyager_app -p 8000:8000 --env-file .env voyager:v4
-
-# Option B — docker compose (recommended)
-docker compose up -d
-
-# 5. Open browser
-# http://localhost:8000
-
-# 6. Watch logs
-docker logs voyager_app -f
-# or
-docker compose logs -f
-
-# everytime a change is made
-# 1. Stop and remove the old container
-docker rm -f voyager_app
-
-# 2. Then start fresh
+# Then rebuild and start
 docker compose up --build -d
 
----
+# Remove the old container (force stops and removes it)
+docker rm -f travelbuddy_app
 
-# -d              → run in background (detached)
-# --name          → give the container a name
-# -p 8000:8000    → map port 8000 on your computer to port 8000 in the container
-# --env-file .env → load your API key and settings from .env
+# Then run again
+docker run -d --name travelbuddy_app -p 8000:8000 --env-file .env travelbuddy:v4
+
+
+```
+
+Open your browser → **http://localhost:8000**
 
 ---
 
@@ -155,7 +130,7 @@ All tools use OpenAI with `web_search_preview` — no hardcoded data anywhere.
 ## Project Structure
 
 ```
-voyager-v4/
+travelbuddy-v4/
 ├── app/
 │   ├── main.py                    ← FastAPI entry point
 │   ├── config.py                  ← Settings from .env (model routing config)
@@ -347,3 +322,215 @@ using `MemorySaver` — conversation history persists for the duration of the se
 
 Restarting the server clears all memory. For persistent memory across restarts,
 install C++ Build Tools then uncomment the SQLite lines in `requirements.txt`.
+
+---
+
+## CI/CD Pipeline — GitHub Actions + Docker
+
+Every `git push` to `main` triggers the full pipeline:
+
+```
+git push main
+     │
+     ▼
+[Job 1] Test          — pytest, blocks everything if tests fail
+     │
+     ▼
+[Job 2] Build & Push  — docker build → push to ghcr.io with 3 tags
+     │
+     ▼
+[Job 3] Deploy        — SSH into server → docker pull → restart container
+     │
+     ▼
+[Job 4] Health check  — hits /api/health to confirm deploy succeeded
+```
+
+Push to `develop` → runs Test + Build only (no deploy).
+Pull request to `main` → runs Test only.
+
+---
+
+### Step 1 — Push code to GitHub
+
+```bash
+git init
+git remote add origin https://github.com/YOUR-USERNAME/travelbuddy.git
+git add .
+git commit -m "Initial commit"
+git push -u origin main
+```
+
+---
+
+### Step 2 — Add GitHub Secrets
+
+Go to your repo → **Settings → Secrets and variables → Actions → New repository secret**
+
+Add these secrets:
+
+| Secret | Value |
+|---|---|
+| `OPENAI_API_KEY` | Your production OpenAI key `sk-...` |
+| `OPENAI_API_KEY_TEST` | OpenAI key used during CI tests (can be same key) |
+| `DEPLOY_HOST` | IP address or hostname of your server |
+| `DEPLOY_USER` | SSH username (e.g. `ubuntu`, `root`, `deploy`) |
+| `DEPLOY_SSH_KEY` | Contents of your private SSH key (`~/.ssh/id_rsa`) |
+| `DEPLOY_PORT` | SSH port — only needed if not 22 |
+
+Add these **Variables** (not secrets — these are non-sensitive):
+
+Go to **Settings → Secrets and variables → Actions → Variables tab**
+
+| Variable | Value |
+|---|---|
+| `DEPLOY_URL` | Your server's public URL e.g. `http://123.456.789.0:8000` |
+
+---
+
+### Step 3 — Set up your server (first time only)
+
+SSH into your server and run:
+
+```bash
+# Install Docker
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
+newgrp docker
+
+# Test Docker works
+docker run hello-world
+
+# Allow GitHub Actions to SSH in
+# On your LOCAL machine — generate a deploy key pair:
+ssh-keygen -t ed25519 -C "github-actions-travelbuddy" -f ~/.ssh/travelbuddy_deploy
+
+# Copy the PUBLIC key to your server:
+ssh-copy-id -i ~/.ssh/travelbuddy_deploy.pub YOUR_USER@YOUR_SERVER_IP
+
+# Copy the PRIVATE key content into GitHub secret DEPLOY_SSH_KEY:
+cat ~/.ssh/travelbuddy_deploy
+```
+
+---
+
+### Step 4 — Trigger your first deploy
+
+```bash
+git add .
+git commit -m "Add CI/CD pipeline"
+git push origin main
+```
+
+Go to your repo → **Actions tab** → watch the pipeline run.
+
+---
+
+### Docker Image Tags
+
+Each push creates three image tags in `ghcr.io`:
+
+| Tag | Example | When |
+|---|---|---|
+| `latest` | `ghcr.io/you/travelbuddy:latest` | Every push to `main` |
+| `main` | `ghcr.io/you/travelbuddy:main` | Push to `main` branch |
+| `sha-a1b2c3d` | `ghcr.io/you/travelbuddy:sha-a1b2c3d` | Every push (short commit SHA) |
+
+---
+
+### Rollback
+
+If a deploy breaks production, roll back to the previous image:
+
+```bash
+# SSH into your server
+ssh YOUR_USER@YOUR_SERVER
+
+# List recent images
+docker images | grep travelbuddy
+
+# Roll back to a specific SHA tag
+docker stop travelbuddy_app && docker rm travelbuddy_app
+docker run -d \
+  --name travelbuddy_app \
+  --restart unless-stopped \
+  -p 8000:8000 \
+  -e OPENAI_API_KEY=your-key \
+  -e OPENAI_MODEL=gpt-4o \
+  -e OPENAI_MODEL_MINI=gpt-4o-mini \
+  -e OPENAI_MODEL_ROUTER=gpt-4o-mini \
+  -e ENV=production \
+  ghcr.io/YOUR-USERNAME/travelbuddy:sha-PREVIOUS-SHA
+```
+
+---
+
+### Branch Strategy
+
+| Branch | What happens on push |
+|---|---|
+| `main` | Test → Build → Deploy to production |
+| `develop` | Test → Build (image pushed but not deployed) |
+| `feature/*` | Nothing (no workflow trigger) |
+| Pull request → `main` | Test only |
+
+---
+
+## Microservice Integration
+
+travelbuddy uses a three-tier tool architecture. Each agent's tools try the best
+available source and fall back gracefully:
+
+```
+Tier 1 — Microservice  (best quality, real APIs + MCP)
+     ↓ if unreachable
+Tier 2 — Web search    (good quality, always available)
+     ↓ if fails
+Tier 3 — Fallback      (minimal safe response, never crashes)
+```
+
+### Rescue Agent — INTEGRATED
+
+The rescue agent tools connect to the MCP-powered rescue microservice
+from `github.com/LEEZIYA/AIChatbotInterface/tree/rescue_agent`.
+
+**To enable it:**
+
+```bash
+# 1. Clone the rescue agent into the project
+git clone https://github.com/LEEZIYA/AIChatbotInterface.git temp
+cp -r temp/rescue_agent_mcp ./rescue_agent_mcp
+rm -rf temp
+
+# 2. Edit docker-compose.yml — uncomment the rescue-agent-api service block
+
+# 3. Set the URL in .env
+RESCUE_AGENT_URL=http://rescue-agent-api:8000  # Docker
+# or
+RESCUE_AGENT_URL=http://localhost:8001          # local
+
+# 4. Rebuild
+docker compose up --build -d
+```
+
+The rescue agent handles 6 disruption types with ranked solutions:
+
+| Disruption | Strategies returned |
+|---|---|
+| FLIGHT_DELAY | REBOOKING, ACCEPT_DELAY, ALTERNATIVE_ROUTE |
+| FLIGHT_CANCELLATION | REBOOKING, ALTERNATIVE_ROUTE, MANUAL_ESCALATION |
+| SEVERE_WEATHER | ACCEPT_DELAY, ALTERNATIVE_ROUTE, MANUAL_ESCALATION |
+| NATURAL_DISASTER | MANUAL_ESCALATION, ALTERNATIVE_ROUTE |
+| SECURITY_ALERT | MANUAL_ESCALATION, ACCEPT_DELAY |
+| TRANSPORT_STRIKE | ALTERNATIVE_ROUTE, REBOOKING |
+
+### Other Agent Improvements — Planned
+
+| Agent | Current | Planned Microservice |
+|---|---|---|
+| Planner | Web search | Amadeus / Skyscanner booking API |
+| Weather | Web search | OpenWeatherMap / WeatherAPI real-time feed |
+| Activities | Web search | Google Places / Viator booking API |
+| Advisory | Web search | Govt advisory feed (State Dept / FCO webhooks) |
+
+All planned microservices follow the same pattern — set the URL in `.env`,
+tools automatically upgrade from web search to microservice. No code changes needed.
