@@ -1,0 +1,16 @@
+.venv312/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.git/
+.gitignore
+*.md
+test.txt
+.env.example

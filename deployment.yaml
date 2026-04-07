@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: travel-agent
+  labels:
+    app: travel-agent
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: travel-agent
+  template:
+    metadata:
+      labels:
+        app: travel-agent
+    spec:
+      containers:
+      - name: travel-agent
+        image: your-registry/travel-plan-agent:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: OLLAMA_HOST
+          value: "http://ollama-service:11434"
+        - name: ENVIRONMENT
+          value: "production"
+        envFrom:
+        - secretRef:
+            name: travel-agent-secrets
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: travel-agent-service
+spec:
+  selector:
+    app: travel-agent
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8000
+  type: LoadBalancer

@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*\$py.class
+*.so
+.Python
+
+# Virtual Environments
+.venv*/
+venv*/
+env/
+ENV/
+.venv312/
+
+# Environment Variables (IMPORTANT - Don't commit secrets!)
+.env
+.env.local
+.env.production
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+
+# Logs
+*.log
+logs/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Test files
+test.txt
