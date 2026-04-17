@@ -1,10 +1,10 @@
 fastapi
 uvicorn[standard]
-pydantic
 pydantic-settings
-python-dotenv
-httpx
 langgraph
 langchain
 langchain-openai
 langchain-core
+openai
+httpx
+python-multipart

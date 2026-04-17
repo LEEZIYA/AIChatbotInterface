@@ -28,6 +28,33 @@ pip install -r requirements.txt
 # 4. Run
 uvicorn app.main:app --reload --port 8000
 ```
+## commit steps
+# 1. Push to GitHub
+git add .
+git commit -m "Add CI/CD pipeline"
+git push origin main
+
+## docker steps
+# This stops AND removes the container cleanly
+docker compose down
+
+# Then rebuild and start
+docker compose up --build -d
+
+# generate logs continuously
+docker logs travelbuddy_app -f
+
+# Remove the old container (force stops and removes it)
+docker rm -f travelbuddy_app
+
+# Build container
+docker build -t travelbuddy:v4 .
+
+# Then run again
+docker run -d --name travelbuddy_app -p 8000:8000 --env-file .env travelbuddy:v4
+
+
+```
 
 Open your browser → **http://localhost:8000**
 

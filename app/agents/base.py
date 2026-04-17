@@ -1,115 +1,164 @@
 """
-Base Agent
-----------
-All specialist agents inherit from this.
-Accepts full conversation history so agents understand multi-turn context.
-The agentic loop: LLM decides tools → execute → feed results back → repeat → final answer.
+Base Agent — agentic tool loop with full conversation history.
+Handles both dict messages and LangChain message objects safely.
 """
-
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Dict, Any, List, Optional
 
-from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage, AIMessage
 from langchain_openai import ChatOpenAI
-from langchain_core.tools import BaseTool
+from langchain_core.messages import (
+    SystemMessage, HumanMessage, AIMessage, ToolMessage, BaseMessage
+)
 
 from app.config import settings
 
-logger = logging.getLogger("travelbuddy.base_agent")
+logger = logging.getLogger("travelbuddy.base")
+
+MAX_TOOL_ROUNDS = 5
+
+
+def _get_role(msg) -> str:
+    """Extract role from either a dict or a LangChain message object."""
+    if isinstance(msg, dict):
+        return msg.get("role", "user")
+    if isinstance(msg, HumanMessage):
+        return "user"
+    if isinstance(msg, AIMessage):
+        return "assistant"
+    if isinstance(msg, SystemMessage):
+        return "system"
+    if hasattr(msg, "type"):
+        t = msg.type
+        if t == "human":   return "user"
+        if t == "ai":      return "assistant"
+        if t == "system":  return "system"
+    return "user"
+
+
+def _get_content(msg) -> str:
+    """Extract content from either a dict or a LangChain message object."""
+    if isinstance(msg, dict):
+        return msg.get("content", "")
+    if isinstance(msg, BaseMessage):
+        c = msg.content
+        if isinstance(c, str):
+            return c
+        if isinstance(c, list):
+            return " ".join(
+                block.get("text", "") if isinstance(block, dict) else str(block)
+                for block in c
+            )
+    return str(msg)
 
 
 class BaseAgent:
     name: str = "base"
+    tools: list = []
     system_prompt: str = "You are a helpful travel assistant."
-    tools: List[BaseTool] = []
 
     def __init__(self):
         self.llm = ChatOpenAI(
             model=settings.OPENAI_MODEL_MINI,
             api_key=settings.OPENAI_API_KEY,
-            temperature=0.5,
+            temperature=0.3,
         )
-        self.llm_with_tools = self.llm.bind_tools(self.tools) if self.tools else self.llm
-        self.tool_map: Dict[str, BaseTool] = {t.name: t for t in self.tools}
+        self.llm_with_tools = self.llm.bind_tools(self.tools)
+        self.tool_map = {t.name: t for t in self.tools}
 
-    async def run(
-        self,
-        conversation_history: List[Dict[str, str]],
-        destination: Optional[str] = None,
-        extra_context: Optional[str] = None,
-    ) -> Dict[str, Any]:
+    def _build_system(self, destination: Optional[str],
+                      extra_context: Optional[str]) -> str:
+        parts = [self.system_prompt]
+        if extra_context:
+            parts.append(f"\n{extra_context}")
+        if destination and extra_context and destination not in extra_context:
+            parts.append(f"\nDestination: {destination}")
+        return "\n".join(parts)
+
+    def _build_messages(self, conversation_history: List, system: str) -> List:
         """
-        Run the agentic tool-calling loop with full conversation history.
-        Agents see all prior messages so they understand follow-up references.
+        Build LangChain message list.
+        Safely handles both dict messages and LangChain message objects.
+        Uses last 10 messages only to keep token usage low.
         """
-        logger.info(f"[{self.name}] Starting — {len(conversation_history)} messages in history")
-
-        # Build messages: system prompt first, then full conversation history
-        messages = [SystemMessage(content=self._build_system_prompt(destination, extra_context))]
-
-        for msg in conversation_history:
-            role    = msg.get("role", "")
-            content = msg.get("content", "")
+        msgs = [SystemMessage(content=system)]
+        for msg in conversation_history[-10:]:
+            role    = _get_role(msg)
+            content = _get_content(msg)
             if not content:
                 continue
             if role == "user":
-                messages.append(HumanMessage(content=content))
+                msgs.append(HumanMessage(content=content))
             elif role == "assistant":
-                messages.append(AIMessage(content=content))
+                msgs.append(AIMessage(content=content))
+        return msgs
 
-        tool_outputs = {}
+    async def run(self,
+                  conversation_history: List,
+                  destination: Optional[str] = None,
+                  extra_context: Optional[str] = None) -> Dict[str, Any]:
 
-        # Agentic loop — max 3 tool-calling rounds
-        for iteration in range(3):
+        system   = self._build_system(destination, extra_context)
+        messages = self._build_messages(conversation_history, system)
+
+        tool_results_combined: Dict[str, Any] = {}
+        response_text = ""
+
+        for round_num in range(MAX_TOOL_ROUNDS):
             response = await self.llm_with_tools.ainvoke(messages)
-            messages.append(response)
 
             if not response.tool_calls:
-                logger.info(f"[{self.name}] Done in {iteration + 1} iteration(s)")
+                response_text = _get_content(response)
                 break
 
-            for tool_call in response.tool_calls:
-                tool_name = tool_call["name"]
-                tool_args = tool_call["args"]
-                tool_id   = tool_call["id"]
-                logger.info(f"[{self.name}] Tool: {tool_name}({tool_args})")
+            messages.append(response)
 
-                if tool_name in self.tool_map:
-                    try:
-                        tool_result = await self.tool_map[tool_name].arun(tool_args)
-                        tool_outputs[tool_name] = tool_result
-                        result_content = json.dumps(tool_result) if isinstance(tool_result, dict) else str(tool_result)
-                    except Exception as e:
-                        logger.error(f"[{self.name}] Tool error: {e}")
-                        result_content = f"Tool error: {str(e)}"
-                else:
-                    result_content = f"Tool {tool_name} not available"
+            for tc in response.tool_calls:
+                tool_name = tc["name"]
+                tool_args = tc.get("args", {})
+                tool_fn   = self.tool_map.get(tool_name)
 
-                messages.append(ToolMessage(content=result_content, tool_call_id=tool_id))
-
-        # Extract final text
-        final_text = ""
-        if hasattr(response, "content"):
-            if isinstance(response.content, str):
-                final_text = response.content
-            elif isinstance(response.content, list):
-                final_text = " ".join(
-                    block.get("text", "") if isinstance(block, dict) else str(block)
-                    for block in response.content
+                logger.info(
+                    f"  [{self.name}] tool: {tool_name}"
+                    f"({', '.join(f'{k}={str(v)[:30]}' for k,v in tool_args.items())})"
                 )
+
+                if tool_fn:
+                    try:
+                        if hasattr(tool_fn, "ainvoke"):
+                            result = await tool_fn.ainvoke(tool_args)
+                        else:
+                            result = tool_fn.invoke(tool_args)
+                        if isinstance(result, dict):
+                            tool_results_combined.update(result)
+                        tool_str = (
+                            json.dumps(result)
+                            if isinstance(result, (dict, list))
+                            else str(result)
+                        )
+                    except Exception as e:
+                        logger.error(f"  [{self.name}] tool {tool_name} error: {e}")
+                        tool_str = f"Error calling {tool_name}: {e}"
+                else:
+                    logger.warning(f"  [{self.name}] unknown tool: {tool_name}")
+                    tool_str = f"Tool {tool_name} not available"
+
+                messages.append(ToolMessage(
+                    content=tool_str,
+                    tool_call_id=tc["id"],
+                ))
+
+        if not response_text:
+            try:
+                final = await self.llm_with_tools.ainvoke(messages)
+                response_text = _get_content(final)
+            except Exception as e:
+                logger.error(f"  [{self.name}] final response error: {e}")
+                response_text = ""
 
         return {
             "agent":    self.name,
-            "response": final_text,
-            "data":     tool_outputs if tool_outputs else None,
-            "error":    None,
+            "active":   True,
+            "response": response_text,
+            **tool_results_combined,
         }
-
-    def _build_system_prompt(self, destination: Optional[str], extra_context: Optional[str]) -> str:
-        prompt = self.system_prompt
-        if destination:
-            prompt += f"\n\nDestination: {destination}"
-        if extra_context:
-            prompt += f"\nContext: {extra_context}"
-        return prompt

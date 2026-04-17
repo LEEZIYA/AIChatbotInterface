@@ -112,12 +112,85 @@
   .weather-temp { font-size:16px; font-weight:600; color:var(--accent4); }
   .weather-desc { font-size:10px; color:var(--text-dim); }
 
+  /* FLIGHT CARDS */
+  .top3-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:10px; }
+  @media(max-width:700px){ .top3-grid { grid-template-columns:1fr; } }
+  .flight-card, .hotel-card {
+    background:rgba(255,255,255,0.03); border:1px solid var(--border);
+    border-radius:10px; padding:14px; position:relative; transition:border-color 0.2s;
+  }
+  .flight-card:hover, .hotel-card:hover { border-color:rgba(0,212,255,0.3); }
+  .card-badge {
+    position:absolute; top:10px; right:10px;
+    font-size:9px; font-family:'DM Mono',monospace; letter-spacing:1px;
+    padding:2px 8px; border-radius:3px;
+    background:rgba(0,212,255,0.12); color:var(--accent); border:1px solid rgba(0,212,255,0.2);
+  }
+  .card-badge.cheap  { background:rgba(0,255,157,0.1);  color:var(--accent2); border-color:rgba(0,255,157,0.2); }
+  .card-badge.best   { background:rgba(255,209,102,0.1); color:var(--accent4); border-color:rgba(255,209,102,0.2); }
+  .flight-airline    { font-size:13px; font-weight:600; color:var(--text-bright); margin-bottom:4px; }
+  .flight-route      { font-size:11px; color:var(--text-dim); font-family:'DM Mono',monospace; margin-bottom:8px; }
+  .flight-times      { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+  .flight-time       { font-size:16px; font-weight:700; color:var(--text-bright); }
+  .flight-arrow      { font-size:10px; color:var(--text-dim); flex:1; text-align:center; }
+  .flight-meta       { display:flex; gap:10px; font-size:10px; color:var(--text-dim); font-family:'DM Mono',monospace; margin-bottom:10px; }
+  .flight-price      { font-size:20px; font-weight:700; color:var(--accent2); }
+  .flight-price-sub  { font-size:9px; color:var(--text-dim); }
+  .book-btn {
+    display:block; width:100%; margin-top:10px; padding:7px;
+    background:rgba(0,212,255,0.1); border:1px solid rgba(0,212,255,0.25);
+    border-radius:6px; color:var(--accent); font-size:11px; font-family:'DM Mono',monospace;
+    letter-spacing:1px; text-align:center; text-decoration:none; cursor:pointer;
+    transition:background 0.2s;
+  }
+  .book-btn:hover { background:rgba(0,212,255,0.2); }
+  .hotel-name   { font-size:13px; font-weight:600; color:var(--text-bright); margin-bottom:2px; padding-right:60px; }
+  .hotel-stars  { color:#ffd166; font-size:11px; margin-bottom:4px; }
+  .hotel-area   { font-size:11px; color:var(--text-dim); margin-bottom:6px; }
+  .hotel-rating { display:inline-flex; align-items:center; gap:6px; margin-bottom:6px; }
+  .rating-badge { background:rgba(0,212,255,0.15); border-radius:4px; padding:2px 7px; font-size:12px; font-weight:700; color:var(--accent); }
+  .rating-label { font-size:10px; color:var(--text-dim); }
+  .hotel-tags   { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px; }
+  .hotel-tag    { font-size:9px; padding:2px 7px; background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:3px; color:var(--text-dim); }
+  .hotel-price  { font-size:18px; font-weight:700; color:var(--accent2); }
+  .hotel-why    { font-size:10px; color:var(--text-dim); margin-top:4px; line-height:1.4; }
+  .cards-tip    { font-size:10px; color:var(--text-dim); margin-top:8px; font-family:'DM Mono',monospace; padding:6px 10px; background:rgba(255,255,255,0.02); border-radius:4px; }
+
   /* ITINERARY */
-  .itinerary-day { margin-top:8px; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
-  .itin-day-header { padding:8px 14px; background:rgba(0,255,157,0.08); border-bottom:1px solid var(--border); font-size:11px; font-weight:600; color:var(--accent2); font-family:'DM Mono',monospace; }
-  .itin-item { padding:8px 14px; border-bottom:1px solid var(--border); display:flex; gap:10px; align-items:flex-start; font-size:12px; }
+  .itinerary-day { margin-top:10px; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+  .itin-day-header {
+    padding:10px 14px; background:rgba(0,255,157,0.07);
+    border-bottom:1px solid var(--border);
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .itin-day-title { font-size:11px; font-weight:600; color:var(--accent2); font-family:'DM Mono',monospace; letter-spacing:1px; }
+  .itin-day-meta  { font-size:10px; color:var(--text-dim); font-family:'DM Mono',monospace; display:flex; gap:12px; }
+  .itin-col-header {
+    padding:5px 14px;
+    display:grid; grid-template-columns:52px 1fr 80px 70px;
+    gap:8px; background:rgba(255,255,255,0.02);
+    border-bottom:1px solid var(--border);
+    font-size:9px; font-family:'DM Mono',monospace;
+    letter-spacing:1px; color:var(--text-dim);
+  }
+  .itin-item {
+    padding:8px 14px; border-bottom:1px solid var(--border);
+    display:grid; grid-template-columns:52px 1fr 80px 70px;
+    gap:8px; align-items:start; font-size:12px;
+    transition:background 0.15s;
+  }
   .itin-item:last-child { border-bottom:none; }
-  .itin-time { font-family:'DM Mono',monospace; font-size:10px; color:var(--text-dim); min-width:50px; margin-top:1px; }
+  .itin-item:hover { background:rgba(255,255,255,0.02); }
+  .itin-time     { font-family:'DM Mono',monospace; font-size:10px; color:var(--text-dim); padding-top:1px; }
+  .itin-activity { color:var(--text); line-height:1.5; }
+  .itin-cost     { font-family:'DM Mono',monospace; font-size:10px; color:var(--accent2); text-align:right; padding-top:1px; white-space:nowrap; }
+  .itin-duration { font-family:'DM Mono',monospace; font-size:10px; color:var(--accent4); text-align:right; padding-top:1px; white-space:nowrap; }
+  .itin-cost.free    { color:var(--accent2); }
+  .itin-cost.paid    { color:var(--accent4); }
+  .itin-cost.meal    { color:#a78bfa; }
+  .itin-day-summary  { padding:8px 14px; background:rgba(0,212,255,0.03); border-top:1px solid var(--border); display:flex; gap:16px; }
+  .itin-summary-item { font-size:10px; font-family:'DM Mono',monospace; color:var(--text-dim); }
+  .itin-summary-val  { color:var(--text-bright); font-weight:500; }
 
   /* TYPING */
   .typing-indicator { display:flex; gap:12px; align-items:flex-start; }
@@ -300,6 +373,9 @@ function renderMarkdown(text) {
 
 const BACKEND_API = "/api/chat";
 let sessionId = null;
+// Track which agents have already produced output — sent to backend each request
+// so supervisor knows what exists and won't overwrite without confirmation
+let alreadyGenerated = [];
 // Trip history — persists across conversation turns
 // Each entry: { id, destination, savedAt, dates, duration, origin,
 //               forecast, itinerary, highlights, riskLevel, visaRequirement,
@@ -321,12 +397,13 @@ let pipelineSteps = [];
 let activeTab = 'overview';
 
 const AGENTS = [
-  { id:'orchestrator', name:'Orchestrator',     role:'COORDINATION LAYER',    icon:'🎯', color:'#00d4ff', desc:'Routes queries, coordinates all specialist agents.', status:'active' },
-  { id:'planner',      name:'Planner Agent',    role:'ITINERARY & LOGISTICS', icon:'🗺️', color:'#00ff9d', desc:'Flights, hotels, day-by-day itineraries.', status:'idle' },
-  { id:'weather',      name:'Weather Agent',    role:'METEOROLOGICAL',        icon:'🌤️', color:'#ffd166', desc:'Forecasts, seasonal patterns, packing advice.', status:'idle' },
-  { id:'activities',   name:'Activities Agent', role:'EXPERIENCES & CULTURE', icon:'🎭', color:'#a78bfa', desc:'Restaurants, attractions, local experiences.', status:'idle' },
-  { id:'advisory',     name:'Advisory Agent',   role:'SAFETY & COMPLIANCE',   icon:'🛡️', color:'#ff6b35', desc:'Safety, visa, vaccines, local laws.', status:'idle' },
-  { id:'rescue',       name:'Rescue Agent',     role:'EMERGENCY RESPONSE',    icon:'🚨', color:'#ff4757', desc:'Emergency contacts, hospitals, embassies.', status:'idle' },
+  { id:'orchestrator',   name:'Orchestrator',          role:'COORDINATION LAYER',    icon:'🎯', color:'#00d4ff', desc:'Routes queries, coordinates all specialist agents.', status:'active' },
+  { id:'transport',      name:'Transport Agent',        role:'FLIGHTS & TRANSIT',     icon:'✈️', color:'#00ff9d', desc:'Flights, trains, local transit, airport transfers.', status:'idle' },
+  { id:'accommodation',  name:'Accommodation Agent',    role:'HOTELS & STAYS',        icon:'🏨', color:'#34d399', desc:'Hotels, hostels, Airbnb, best areas to stay.', status:'idle' },
+  { id:'weather',        name:'Weather Agent',          role:'METEOROLOGICAL',        icon:'🌤️', color:'#ffd166', desc:'Forecasts, seasonal patterns, packing advice.', status:'idle' },
+  { id:'activities',     name:'Activities Agent',       role:'EXPERIENCES & CULTURE', icon:'🎭', color:'#a78bfa', desc:'Restaurants, attractions, local experiences.', status:'idle' },
+  { id:'advisory',       name:'Advisory Agent',         role:'SAFETY & COMPLIANCE',   icon:'🛡️', color:'#ff6b35', desc:'Safety, visa, vaccines, local laws.', status:'idle' },
+  { id:'rescue',         name:'Rescue Agent',           role:'EMERGENCY RESPONSE',    icon:'🚨', color:'#ff4757', desc:'Emergency contacts, hospitals, embassies.', status:'idle' },
 ];
 
 function hexToRgb(hex) {
@@ -480,49 +557,220 @@ function buildWeatherWidget(forecast) {
     </div>`).join('')}</div>`;
 }
 
+function parseCost(activity) {
+  // Extract cost from activity text — looks for patterns like "200 THB", "SGD 50", "free", "$15"
+  if (!activity) return '';
+  const lower = activity.toLowerCase();
+  if (lower.includes('free') && (lower.includes('entry') || lower.includes('admission') || lower.includes('no charge')))
+    return 'Free';
+  // SGD/USD/$
+  const sgd = activity.match(/SGD?\s*(\d+[\d,]*)/i);
+  if (sgd) return 'SGD ' + sgd[1].replace(',','');
+  const usd = activity.match(/USD?\s*(\d+[\d,]*)/i);
+  if (usd) return 'USD ' + usd[1].replace(',','');
+  const dollar = activity.match(/\$(\d+[\d,]*)/);
+  if (dollar) return '$' + dollar[1];
+  // THB
+  const thb = activity.match(/(\d+[\d,]*)\s*THB/i);
+  if (thb) return thb[1].replace(',','') + ' THB';
+  // JPY / ¥
+  const jpy = activity.match(/¥\s*(\d+[\d,]*)/);
+  if (jpy) return '¥' + jpy[1].replace(',','');
+  const yen = activity.match(/(\d+[\d,]*)\s*yen/i);
+  if (yen) return yen[1].replace(',','') + ' JPY';
+  // MYR
+  const myr = activity.match(/MYR\s*(\d+[\d,]*)|RM\s*(\d+[\d,]*)/i);
+  if (myr) return 'RM ' + (myr[1]||myr[2]).replace(',','');
+  return '';
+}
+
+function parseDuration(activity) {
+  if (!activity) return '';
+  const lower = activity.toLowerCase();
+  // Meal times
+  if (/breakfast|lunch|dinner|brunch/i.test(activity)) return '~1 hr';
+  // Explicit duration
+  const hrs  = lower.match(/(\d+(?:\.\d+)?)\s*-?\s*(?:hrs?|hours?)/);
+  const mins = lower.match(/(\d+)\s*(?:mins?|minutes?)/);
+  if (hrs  && parseFloat(hrs[1]) < 12) return parseFloat(hrs[1]) + ' hr' + (parseFloat(hrs[1])!==1?'s':'');
+  if (mins && parseInt(mins[1]) < 300) return mins[1] + ' min';
+  // Common duration clues
+  if (/allow\s*2[\s-]*3|2[\s-]*3\s*hr/i.test(lower))   return '2-3 hrs';
+  if (/allow\s*1[\s-]*2|1[\s-]*2\s*hr/i.test(lower))   return '1-2 hrs';
+  if (/half\s*day/i.test(lower))                         return '~4 hrs';
+  if (/full\s*day/i.test(lower))                         return '~8 hrs';
+  return '';
+}
+
+function dayCostTotal(items) {
+  // Sum up costs in a single currency if possible
+  let thb=0, sgd=0, usd=0, jpy=0, rm=0;
+  (items||[]).forEach(item => {
+    const a = item.activity || '';
+    const t = a.match(/(\d+[\d,]*)\s*THB/i);    if(t) thb += parseInt(t[1].replace(',',''));
+    const s = a.match(/SGD?\s*(\d+[\d,]*)/i);   if(s) sgd += parseInt(s[1].replace(',',''));
+    const u = a.match(/USD?\s*(\d+[\d,]*)/i);    if(u) usd += parseInt(u[1].replace(',',''));
+    const j = a.match(/(\d+[\d,]*)\s*yen|¥(\d+[\d,]*)/i); if(j) jpy += parseInt((j[1]||j[2]).replace(',',''));
+    const m = a.match(/MYR\s*(\d+)|RM\s*(\d+)/i); if(m) rm += parseInt(m[1]||m[2]);
+  });
+  const parts = [];
+  if (thb > 0) parts.push('~' + thb.toLocaleString() + ' THB');
+  if (sgd > 0) parts.push('~SGD ' + sgd);
+  if (usd > 0) parts.push('~USD ' + usd);
+  if (jpy > 0) parts.push('~¥' + jpy.toLocaleString());
+  if (rm  > 0) parts.push('~RM '  + rm);
+  return parts.join(' + ') || '';
+}
+
+function buildFlightCards(data) {
+  if (!data || !data.top3 || !data.top3.length) return '';
+  const badgeClass = b => b==='Cheapest'?'cheap':b==='Best Timing'||b==='Top Pick'?'best':'';
+  const cards = data.top3.map(f => `
+    <div class="flight-card">
+      ${f.badge ? `<span class="card-badge ${badgeClass(f.badge)}">${f.badge}</span>` : ''}
+      <div class="flight-airline">${f.airline || ''} ${f.flight_number ? '<span style="font-size:10px;color:var(--text-dim)">'+f.flight_number+'</span>' : ''}</div>
+      <div class="flight-route">${data.origin || ''} → ${data.destination || ''} · ${data.date || ''}</div>
+      <div class="flight-times">
+        <div class="flight-time">${f.departure || ''}</div>
+        <div class="flight-arrow">──── ${f.duration || ''} ────</div>
+        <div class="flight-time">${f.arrival || ''}</div>
+      </div>
+      <div class="flight-meta">
+        <span>${f.stops || ''}</span>
+        <span>${f.cabin || 'Economy'}</span>
+      </div>
+      <div class="flight-price">${f.price_display || ''}</div>
+      <div class="flight-price-sub">per person · economy</div>
+      ${f.booking_url ? `<a class="book-btn" href="${f.booking_url}" target="_blank" rel="noopener">BOOK NOW ↗</a>` : ''}
+    </div>`).join('');
+  return `<div class="top3-grid">${cards}</div>
+    ${data.search_tip ? `<div class="cards-tip">💡 ${data.search_tip}</div>` : ''}`;
+}
+
+function buildHotelCards(data) {
+  if (!data || !data.top3 || !data.top3.length) return '';
+  const badgeClass = b => b==='Best Value'?'cheap':b==='Top Pick'||b==='Highest Rated'?'best':'';
+  const stars = n => '★'.repeat(Math.min(n||0,5));
+  const cards = data.top3.map(h => `
+    <div class="hotel-card">
+      ${h.badge ? `<span class="card-badge ${badgeClass(h.badge)}">${h.badge}</span>` : ''}
+      <div class="hotel-name">${h.name || ''}</div>
+      <div class="hotel-stars">${stars(h.stars)}</div>
+      <div class="hotel-area">📍 ${h.area || ''}</div>
+      <div class="hotel-rating">
+        <span class="rating-badge">${h.rating || ''}</span>
+        <span class="rating-label">${h.rating_label || ''} · ${h.reviews_count ? h.reviews_count.toLocaleString()+' reviews' : ''}</span>
+      </div>
+      ${h.highlights?.length ? `<div class="hotel-tags">${h.highlights.slice(0,3).map(t=>`<span class="hotel-tag">${t}</span>`).join('')}</div>` : ''}
+      <div class="hotel-price">${h.price_display || ''}</div>
+      ${h.why ? `<div class="hotel-why">${h.why}</div>` : ''}
+      ${h.booking_url ? `<a class="book-btn" href="${h.booking_url}" target="_blank" rel="noopener">BOOK NOW ↗</a>` : ''}
+    </div>`).join('');
+  return `<div class="top3-grid">${cards}</div>
+    ${data.search_tip ? `<div class="cards-tip">💡 ${data.search_tip}</div>` : ''}`;
+}
+
 function buildItinerary(itinerary) {
   if (!itinerary || !Array.isArray(itinerary) || itinerary.length === 0) return '';
-  return itinerary.map(day=>`
-    <div class="itinerary-day">
-      <div class="itin-day-header">DAY ${day.day}</div>
-      ${(day.items||[]).map(item=>`
+  return itinerary.map(day => {
+    const items   = day.items || [];
+    const title   = day.title || ('Day ' + day.day);
+    const dayTotal = dayCostTotal(items);
+    const itemCount = items.length;
+
+    const itemsHTML = items.map(item => {
+      const cost     = item.cost     || parseCost(item.activity || '');
+      const duration = item.duration || parseDuration(item.activity || '');
+      const costClass = cost === 'Free' ? 'free'
+                      : /breakfast|lunch|dinner|brunch/i.test(item.activity||'') ? 'meal'
+                      : cost ? 'paid' : '';
+      return `
         <div class="itin-item">
-          <div class="itin-time">${item.time||''}</div>
-          <div>${item.activity||''}</div>
-        </div>`).join('')}
-    </div>`).join('');
+          <div class="itin-time">${item.time || ''}</div>
+          <div class="itin-activity">${item.activity || ''}</div>
+          <div class="itin-cost ${costClass}">${cost}</div>
+          <div class="itin-duration">${duration}</div>
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="itinerary-day">
+        <div class="itin-day-header">
+          <div class="itin-day-title">DAY ${day.day} — ${title.replace(/^Day \d+\s*[—-]?\s*/i,'')}</div>
+          <div class="itin-day-meta">
+            <span>${itemCount} activities</span>
+            ${dayTotal ? `<span>${dayTotal}</span>` : ''}
+          </div>
+        </div>
+        <div class="itin-col-header">
+          <div>TIME</div>
+          <div>ACTIVITY</div>
+          <div style="text-align:right">COST</div>
+          <div style="text-align:right">DURATION</div>
+        </div>
+        ${itemsHTML}
+        ${dayTotal ? `
+        <div class="itin-day-summary">
+          <div class="itin-summary-item">Est. daily spend: <span class="itin-summary-val">${dayTotal}</span></div>
+        </div>` : ''}
+      </div>`;
+  }).join('');
 }
 
 function buildAdvisoryCard(advisory) {
   if (!advisory || !advisory.active) return '';
+
   const riskClass = {LOW:'risk-low',MEDIUM:'risk-med',HIGH:'risk-high',CRITICAL:'risk-critical'};
   const riskEmoji = {LOW:'🟢',MEDIUM:'🟡',HIGH:'🟠',CRITICAL:'🔴'};
-  const rc = riskClass[advisory.risk_level] || 'risk-low';
-  const re = riskEmoji[advisory.risk_level]  || '🟢';
+
+  // Normalise risk_level — handle null, undefined, empty string
+  const rawRisk = advisory.risk_level;
+  const riskLevel = (rawRisk && rawRisk !== 'undefined' && rawRisk !== 'null')
+    ? rawRisk.toUpperCase() : null;
+  const rc = riskClass[riskLevel] || 'risk-low';
+  const re = riskEmoji[riskLevel] || '🟢';
+
   let html = `<div class="advisory-card">`;
 
-  html += `<div class="advisory-section" style="background:rgba(255,107,53,0.05)">
-    <div class="advisory-section-title" style="color:#ff6b35">⚡ OVERALL RISK</div>
-    <span class="risk-badge ${rc}">${re} ${advisory.risk_level}</span></div>`;
+  // Overall risk — only show if we have a valid risk level
+  if (riskLevel) {
+    html += `<div class="advisory-section" style="background:rgba(255,107,53,0.05)">
+      <div class="advisory-section-title" style="color:#ff6b35">⚡ OVERALL RISK</div>
+      <span class="risk-badge ${rc}">${re} ${riskLevel}</span></div>`;
+  }
 
   if (advisory.hazards?.length) {
     html += `<div class="advisory-section"><div class="advisory-section-title" style="color:#ff6b35">⚠️ HAZARDS</div>`;
     advisory.hazards.forEach(h=>{
-      const hc = riskClass[h.level]||'risk-low';
+      const hl = (h.level && h.level !== 'undefined') ? h.level : '';
+      const hc = riskClass[hl] || 'risk-low';
+      const htype  = h.type   || '';
+      const hdetail = h.detail || '';
+      if (!htype && !hdetail) return;
       html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:11px;border-bottom:1px solid var(--border)">
-        <span style="color:var(--text)">${h.type}: <span style="color:var(--text-dim)">${h.detail}</span></span>
-        <span class="risk-badge ${hc}" style="font-size:9px;padding:1px 7px">${h.level}</span></div>`;
+        <span style="color:var(--text)">${htype}${hdetail ? ': <span style="color:var(--text-dim)">' + hdetail + '</span>' : ''}</span>
+        ${hl ? `<span class="risk-badge ${hc}" style="font-size:9px;padding:1px 7px">${hl}</span>` : ''}</div>`;
     });
     html += `</div>`;
   }
 
+  // Visa — only show if requirement is a real value
   if (advisory.visa) {
-    html += `<div class="advisory-section">
-      <div class="advisory-section-title" style="color:#a78bfa">🛂 VISA</div>
-      <div style="font-size:12px;margin-bottom:6px"><span style="font-weight:600;color:var(--text-bright)">${advisory.visa.requirement}</span></div>
-      <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">${advisory.visa.details||''}</div>
-      <div class="source-stamp"><span style="color:var(--accent)">🏛️</span><span>${advisory.visa.source||''}</span>
-        <span style="margin-left:auto;color:var(--accent);font-size:9px">Updated: ${advisory.visa.updated||''}</span></div></div>`;
+    const req = advisory.visa.requirement;
+    const validReq = req && req !== 'undefined' && req !== 'null' && req !== '';
+    if (validReq) {
+      html += `<div class="advisory-section">
+        <div class="advisory-section-title" style="color:#a78bfa">🛂 VISA</div>
+        <div style="font-size:12px;margin-bottom:6px">
+          <span style="font-weight:600;color:var(--text-bright)">${req}</span></div>
+        ${advisory.visa.max_stay ? `<div style="font-size:11px;color:var(--text-dim);margin-bottom:4px">Stay up to ${advisory.visa.max_stay}</div>` : ''}
+        ${advisory.visa.details ? `<div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">${advisory.visa.details}</div>` : ''}
+        <div class="source-stamp">
+          <span style="color:var(--accent)">🏛️</span>
+          <span>${advisory.visa.source || ''}</span>
+          <span style="margin-left:auto;color:var(--accent);font-size:9px">Updated: ${advisory.visa.updated || 'see source'}</span>
+        </div></div>`;
+    }
   }
 
   if (advisory.vaccines?.length) {
@@ -895,6 +1143,32 @@ async function sendMessage() {
   if (!query) return;
   input.value = ''; input.style.height = '46px';
 
+  // ── Eager reset when a new trip destination is detected ──────────────────
+  // This must happen BEFORE the fetch so stale already_generated and old
+  // conversation history don't reach the Clarifier.
+  // Detects patterns like "3 day trip to Bangkok" / "plan 5 days in Paris"
+  const newTripMatch = query.match(
+    /\b(\d+)\s*-?\s*(?:day|days|night|nights)\b.{0,60}\b(?:to|in|at|visit(?:ing)?)\s+([A-Z][a-zA-Z\s,]+?)(?:\s+in\b|\s+during\b|$)/i
+  ) || query.match(/\bplan\b.{0,40}\btrip\b.{0,40}\bto\s+([A-Z][a-zA-Z\s,]+)/i);
+
+  if (newTripMatch && tripData.destination) {
+    // Extract the destination from the new query
+    const mentionedDest = (newTripMatch[2] || newTripMatch[1] || '').trim().toLowerCase();
+    const currentDest   = (tripData.destination || '').toLowerCase();
+    // Only reset if the new query clearly mentions a different place
+    if (mentionedDest && !currentDest.includes(mentionedDest) && !mentionedDest.includes(currentDest.split(',')[0])) {
+      console.log(`[reset] New destination detected: "${mentionedDest}" vs current "${currentDest}" — clearing session state`);
+      alreadyGenerated = [];
+      conversationHistory = [];
+      tripData = { destination:null, dates:null, duration:null, origin:null,
+                   forecast:null, itinerary:null, highlights:null,
+                   riskLevel:null, visaRequirement:null,
+                   advisoryText:null, activitiesText:null, plannerText:null, weatherText:null };
+      currentDestination = '';
+      document.getElementById('destLabel').textContent = 'No destination set';
+    }
+  }
+
   addMessage('user', query, true);
   conversationHistory.push({role:'user', content:query});
 
@@ -906,7 +1180,11 @@ async function sendMessage() {
     const response = await fetch(BACKEND_API, {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({messages: conversationHistory, session_id: sessionId}),
+      body: JSON.stringify({
+        messages:          conversationHistory,
+        session_id:        sessionId,
+        already_generated: alreadyGenerated,
+      }),
     });
 
     const data = await response.json();
@@ -916,18 +1194,38 @@ async function sendMessage() {
     removeTyping();
     involved.forEach(id => setAgentStatus(id, 'idle'));
 
-    const parsed = data.result;
-    if (!parsed) throw new Error('No result from server');
-
-    // ── Clarification — just show the question, no agent cards ────────────────
+    // ── Clarification or confirmation request ────────────────────────────────
     if (data.clarification_needed) {
-      const question = data.clarification_question || parsed.orchestrator_message;
-      addMessage('orchestrator', question);
+      const question = data.clarification_question || 'Could you tell me more?';
+      const isConfirm = data.is_confirmation || false;
+
+      // Confirmation uses a distinct visual style
+      if (isConfirm) {
+        const confirmDiv = document.createElement('div');
+        confirmDiv.innerHTML = `<div style="
+          padding:12px 16px; margin:8px 0;
+          background:rgba(255,209,102,0.08);
+          border:1px solid rgba(255,209,102,0.3);
+          border-left:3px solid var(--accent4);
+          border-radius:6px; font-size:13px; color:var(--text);
+          display:flex; align-items:center; gap:10px;">
+          <span style="font-size:16px">⚠️</span>
+          <span>${question}</span>
+        </div>`;
+        document.getElementById('chatMessages').appendChild(confirmDiv.firstChild);
+        document.getElementById('chatMessages').scrollTop = 99999;
+      } else {
+        addMessage('orchestrator', question);
+      }
+
       setAgentStatus('orchestrator', 'active');
       conversationHistory.push({role:'assistant', content:question});
       if (activeTab==='overview') renderOverview();
       return;
     }
+
+    const parsed = data.result;
+    if (!parsed) throw new Error('No result from server');
 
     // ── Normal response ───────────────────────────────────────────────────────
     if (parsed.destination) {
@@ -937,7 +1235,12 @@ async function sendMessage() {
 
     const agentsInvolved = parsed.agents_involved || ['orchestrator'];
     updatePipeline(agentsInvolved);
-    agentsInvolved.forEach(id => setAgentStatus(id, 'active'));
+    // Only mark agents that are truly active in this response
+    const activeAgents = Object.entries(parsed.agent_responses || {})
+      .filter(([,v]) => v.active).map(([k]) => k);
+    AGENTS.forEach(a => setAgentStatus(a.id, 'idle'));
+    setAgentStatus('orchestrator', 'active');
+    activeAgents.forEach(id => setAgentStatus(id, 'active'));
 
     // Routing trail
     if (agentsInvolved.filter(a=>a!=='orchestrator').length > 0) {
@@ -946,46 +1249,66 @@ async function sendMessage() {
         <span>🎯 ORCHESTRATOR</span><span class="routing-arrow">→</span>
         <span>${agentsInvolved.filter(a=>a!=='orchestrator'&&a!=='clarifier').map(a=>{
           const ag=AGENTS.find(x=>x.id===a);
-          return ag?`<span style="color:${ag.color}">${ag.icon} ${ag.name}</span>`:'';
+          return ag?`<span style="color:${ag.color}">${ag.icon} ${ag.name}</span>`:`<span style="color:#888">${a}</span>`;
         }).join(' + ')}</span>
       </div>`;
       document.getElementById('chatMessages').appendChild(routingDiv.firstChild);
     }
 
-    // Orchestrator summary
-    if (parsed.orchestrator_message) {
+    // Orchestrator summary — only show for multi-agent responses
+    // For single-agent follow-ups the agent card itself is the answer
+    const activeAgentCount = Object.values(parsed.agent_responses || {})
+      .filter(a => a.active).length;
+    if (parsed.orchestrator_message && activeAgentCount > 1) {
       addMessage('orchestrator', parsed.orchestrator_message);
     }
 
     const ar = parsed.agent_responses || {};
 
-    // Weather — text rendered as markdown, widget as raw HTML
+    // ── Itinerary — only render for full multi-agent planning queries ─────────
+    const planAgents = ['transport','accommodation','activities','weather'];
+    const planAgentCount = Object.entries(parsed.agent_responses || {})
+      .filter(([k,v]) => planAgents.includes(k) && v.active).length;
+    if (parsed.itinerary && Array.isArray(parsed.itinerary)
+        && parsed.itinerary.length > 0 && planAgentCount >= 2) {
+      const widgetHTML = buildItinerary(parsed.itinerary);
+      const dest = parsed.destination || currentDestination || '';
+      const dur  = parsed.trip_duration || '';
+      const msg  = `Here is your ${dur} itinerary for ${dest}.`.replace(/\s+/g,' ').trim();
+      addMessage('activities', msg, false, widgetHTML);
+    }
+
+    // Transport
+    if (ar.transport?.active && ar.transport?.response) {
+      const flightWidget = buildFlightCards(ar.transport.flights || ar.transport.top3_flights);
+      addMessage('transport', ar.transport.response, false, flightWidget);
+    }
+
+    // Accommodation
+    if (ar.accommodation?.active && ar.accommodation?.response) {
+      const hotelWidget = buildHotelCards(ar.accommodation.hotels || ar.accommodation.top3_hotels);
+      addMessage('accommodation', ar.accommodation.response, false, hotelWidget);
+    }
+
+    // Weather
     if (ar.weather?.active && ar.weather?.response) {
       const widgetHTML = buildWeatherWidget(ar.weather.forecast);
       addMessage('weather', ar.weather.response, false, widgetHTML);
     }
 
-    // Planner — text rendered as markdown, itinerary as raw HTML
-    if (ar.planner?.active && ar.planner?.response) {
-      const widgetHTML = buildItinerary(ar.planner.itinerary);
-      addMessage('planner', ar.planner.response, false, widgetHTML);
-    }
+    // Activities
+    // Activities are shown in the itinerary table — not repeated in chat
+    // if (ar.activities?.active) { ... }  ← intentionally suppressed
 
-    // Activities — text rendered as markdown, highlights as raw HTML
-    if (ar.activities?.active && ar.activities?.response) {
-      const widgetHTML = buildHighlightsList(ar.activities.highlights);
-      addMessage('activities', ar.activities.response, false, widgetHTML);
-    }
-
-    // Advisory — text + structured card (both handled cleanly)
+    // Advisory
     if (ar.advisory?.active && ar.advisory?.response) {
       const widgetHTML = buildAdvisoryCard(ar.advisory);
       addMessage('advisory', ar.advisory.response, false, widgetHTML);
     }
 
-    // Rescue — text rendered as markdown, emergency numbers + disruption solutions as raw HTML
+    // Rescue
     if (ar.rescue?.active && ar.rescue?.response) {
-      const emergencyHTML = buildEmergencyWidget(ar.rescue.emergency_numbers);
+      const emergencyHTML  = buildEmergencyWidget(ar.rescue.emergency_numbers);
       const disruptionHTML = buildDisruptionSolutions(ar.rescue.disruption_solutions);
       addMessage('rescue', ar.rescue.response, false, disruptionHTML + emergencyHTML);
     }
@@ -1000,22 +1323,30 @@ async function sendMessage() {
 
     // If destination changed, start fresh tripData for new trip
     if (newDest && tripData.destination && newDest.toLowerCase() !== tripData.destination.toLowerCase()) {
-      tripData = { destination: null, dates: null, duration: null, origin: null,
+      alreadyGenerated = [];
+  tripData = { destination: null, dates: null, duration: null, origin: null,
                    forecast: null, itinerary: null, highlights: null,
                    riskLevel: null, visaRequirement: null,
                    advisoryText: null, activitiesText: null, plannerText: null, weatherText: null };
     }
     tripData.destination = newDest || tripData.destination;
 
+    // ── Itinerary — only save when it's a full plan (multiple agents) ─────────
+    if (parsed.itinerary && Array.isArray(parsed.itinerary) && parsed.itinerary.length > 0) {
+      const plannerCount = (parsed.agents_involved || []).filter(a =>
+        ['transport','accommodation','activities','weather'].includes(a)
+      ).length;
+      if (plannerCount >= 2) tripData.itinerary = parsed.itinerary;
+    }
+
+    if (ar.transport?.active && ar.transport?.response)
+      tripData.transportText = ar.transport.response;
+    if (ar.accommodation?.active && ar.accommodation?.response)
+      tripData.accommodationText = ar.accommodation.response;
     if (ar.weather?.active) {
       if (Array.isArray(ar.weather.forecast) && ar.weather.forecast.length > 0)
         tripData.forecast = ar.weather.forecast;
       if (ar.weather.response) tripData.weatherText = ar.weather.response;
-    }
-    if (ar.planner?.active) {
-      if (Array.isArray(ar.planner.itinerary) && ar.planner.itinerary.length > 0)
-        tripData.itinerary = ar.planner.itinerary;
-      if (ar.planner.response) tripData.plannerText = ar.planner.response;
     }
     if (ar.activities?.active) {
       if (Array.isArray(ar.activities.highlights) && ar.activities.highlights.length > 0)
@@ -1031,9 +1362,15 @@ async function sendMessage() {
     if (parsed.trip_duration)   tripData.duration = parsed.trip_duration;
     if (parsed.traveler_origin) tripData.origin   = parsed.traveler_origin;
 
-    // Save/update in trip history whenever we have meaningful data
     const hasData = tripData.itinerary || tripData.forecast || tripData.riskLevel || tripData.highlights;
     if (hasData && tripData.destination) saveOrUpdateTrip();
+
+    // Update alreadyGenerated so next request knows what exists
+    if (data.active_agents && Array.isArray(data.active_agents)) {
+      data.active_agents.forEach(a => {
+        if (!alreadyGenerated.includes(a)) alreadyGenerated.push(a);
+      });
+    }
 
     if (activeTab==='overview') renderOverview();
     if (activeTab==='trip')     renderTripTab();

@@ -1,7 +1,10 @@
 .env
 __pycache__/
 *.pyc
-.venv/
-venv/
+*.pyo
 .DS_Store
 *.db
+.venv/
+venv/
+node_modules/
+dist/
