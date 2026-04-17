@@ -20,46 +20,46 @@ An AI-powered travel planning agent built with FastAPI and Ollama.
 
 ### 1. Clone the repository
 
-\`\`\`bash
+```bash
 git clone https://github.com/YOUR_USERNAME/TravelPlanAgent.git
 cd TravelPlanAgent/AIChatbotInterface
-\`\`\`
+```
 
 ### 2. Create virtual environment
 
-\`\`\`bash
+```bash
 python -m venv .venv312
 .venv312\Scripts\activate  # Windows
 # source .venv312/bin/activate  # Linux/Mac
-\`\`\`
+```
 
 ### 3. Install dependencies
 
-\`\`\`bash
+```bash
 pip install -r requirements.txt
-\`\`\`
+```
 
 ### 4. Configure environment variables
 
-\`\`\`bash
+```bash
 cp .env.example .env
 # Edit .env with your actual configuration
-\`\`\`
+```
 
 ### 5. Start Ollama
 
 Make sure Ollama is running on your system:
-\`\`\`bash
+```bash
 ollama serve
-\`\`\`
+```
 
 ### 6. Run the application
 
-\`\`\`bash
+```bash
 python APIAgent.py
 # Or
 uvicorn APIAgent:app --reload
-\`\`\`
+```
 
 The API will be available at `http://localhost:8000`
 
@@ -73,28 +73,29 @@ Once running, visit:
 
 ### Build the image
 
-\`\`\`bash
+```bash
 docker build -t travel-plan-agent .
-\`\`\`
+```
 
 ### Run the container
 
-\`\`\`bash
+```bash
 docker run -d -p 8000:8000 \
   -e OLLAMA_HOST=http://host.docker.internal:11434 \
   --name travel-agent \
   travel-plan-agent
-\`\`\`
+```
 
 ### Using Docker Compose
 
-\`\`\`bash
+```bash
 docker-compose up -d
-\`\`\`
+```
 
 ## Project Structure
 
-\`\`\`
+```text
+
 AIChatbotInterface/
 ├── agents/
 │   └── travel_crew_planner.py
@@ -107,4 +108,5 @@ AIChatbotInterface/
 ├── docker-compose.yml
 ├── .env.example
 └── README.md
-\`\`\`
+
+```
